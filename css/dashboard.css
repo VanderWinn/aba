@@ -455,7 +455,13 @@ select:focus-visible {
 
 .stack { align-self: stretch; }
 
-.stack .card { flex: 1 1 0; min-height: 0; }
+.stack .card { flex: 1 0 auto; min-height: min-content; overflow: visible; }
+
+.stack .bodycol { flex: 0 0 auto; min-height: auto; justify-content: flex-start; gap: 4px; }
+
+.stack .big-mid { font-size: 48px; line-height: 1; }
+
+.stack .pr { margin-top: 2px; }
 
 .card.pop { border-top-color: var(--aba-coral); }
 
