@@ -4,16 +4,13 @@
 
   var portal = window.ABAPortal;
   var PASSWORD_KEY = 'aba-board-portal-password';
-  var VIEW_KEY = 'aba-board-portal-view';
   var state = {
     hash: '',
     events: [],
     year: 0,
     month: 0,
     today: '',
-    notice: '',
-    dashboard: null,
-    view: readView()
+    notice: ''
   };
 
   document.addEventListener('DOMContentLoaded', start);
@@ -64,38 +61,12 @@
     document.getElementById('portal-lock').addEventListener('click', lock);
     document.getElementById('portal-prev').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('portal-next').addEventListener('click', function () { shiftMonth(1); });
-    document.getElementById('portal-dashboard-body').addEventListener('click', onDashClick);
-    document.getElementById('portal-dashboard-body').addEventListener('change', onDashChange);
-    window.addEventListener('hashchange', function () {
-      state.view = portal.dashboardStateFromHash(location.hash);
-      if (state.dashboard) paintDash();
-    });
     var saved = readPassword();
     if (saved) {
       sha256(saved).then(function (digest) {
         if (digest === state.hash) openPortal();
       });
     }
-  }
-
-  function readView() {
-    var hash = '';
-    try { hash = String(location.hash || '').replace(/^#/, ''); } catch (err) {}
-    if (!hash) {
-      try { hash = sessionStorage.getItem(VIEW_KEY) || ''; } catch (err) {}
-    }
-    if (portal && portal.dashboardStateFromHash) return portal.dashboardStateFromHash(hash);
-    return { range: 'last12', from: '', to: '', category: '', detail: null };
-  }
-
-  function saveView() {
-    var hash = portal.dashboardHash(state.view);
-    try { sessionStorage.setItem(VIEW_KEY, hash); } catch (err) {}
-    try {
-      if (String(location.hash || '').replace(/^#/, '') !== hash) {
-        history.replaceState(null, '', '#' + hash);
-      }
-    } catch (err) {}
   }
 
   function readPassword() {
@@ -137,116 +108,8 @@
     if (input) input.focus();
   }
 
-  function dashboardNext() {
-    try {
-      return new URLSearchParams(window.location.search).get('next') === 'dashboard';
-    } catch (err) {
-      return false;
-    }
-  }
-
   function openPortal() {
-    if (dashboardNext()) {
-      window.location.assign('dashboard/');
-      return;
-    }
-    show('portal-gate', false);
-    show('portal-app', true);
-    var parts = todayInDetroit().split('-');
-    state.today = parts.join('-');
-    state.year = Number(parts[0]);
-    state.month = Number(parts[1]);
-    loadDocuments();
-    loadCalendar();
-    loadDashboard();
-  }
-
-  async function loadDashboard() {
-    var root = document.getElementById('portal-dashboard-body');
-    if (!root) return;
-    root.innerHTML = '<p class="portal-empty" role="status">Loading the dashboard…</p>';
-    var password = readPassword();
-    if (!password) {
-      root.innerHTML = portal.renderDashboard(null, { error: 'Enter the portal password again to load the dashboard.' });
-      return;
-    }
-    try {
-      var data = await postDashboard(password);
-      if (!data || data.ok !== true) {
-        if (data && data.status === 401 && /not correct/i.test(data.error || '')) clearPassword();
-        root.innerHTML = portal.renderDashboard(null, { error: (data && data.error) || 'The dashboard could not be loaded.' });
-        return;
-      }
-      state.dashboard = data.dashboard;
-      paintDash();
-    } catch (err) {
-      root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
-    }
-  }
-
-  function paintDash() {
-    var root = document.getElementById('portal-dashboard-body');
-    if (root) root.innerHTML = portal.renderDashboard(state.dashboard, null, state.view);
-    saveView();
-  }
-
-  function onDashClick(event) {
-    if (event.target.closest('[data-retry]')) {
-      loadDashboard();
-      return;
-    }
-    var node = event.target.closest('[data-range], [data-category], [data-person], [data-event], [data-back]');
-    if (!node || !state.dashboard) return;
-    if (!state.view) state.view = { range: 'last12', from: '', to: '', category: '', detail: null };
-    if (node.hasAttribute('data-back')) state.view.detail = null;
-    else if (node.hasAttribute('data-range')) {
-      var pick = node.getAttribute('data-range');
-      state.view.range = pick === 'quarter' ? 'quarter' : (pick === 'year' ? 'year' : 'last12');
-      state.view.from = '';
-      state.view.to = '';
-      state.view.detail = null;
-    } else if (node.hasAttribute('data-category')) {
-      state.view.category = node.getAttribute('data-category') || '';
-      state.view.detail = null;
-    } else if (node.hasAttribute('data-person')) {
-      state.view.detail = { kind: 'person', id: node.getAttribute('data-person') };
-    } else if (node.hasAttribute('data-event')) {
-      state.view.detail = { kind: 'event', id: node.getAttribute('data-event') };
-    } else return;
-    paintDash();
-  }
-
-  function onDashChange(event) {
-    var node = event.target;
-    if (!node || !node.hasAttribute('data-range-date') || !state.dashboard) return;
-    var root = document.getElementById('portal-dashboard-body');
-    var from = root && root.querySelector('[data-range-date="from"]');
-    var to = root && root.querySelector('[data-range-date="to"]');
-    if (!from || !to || !from.value || !to.value) return;
-    if (!state.view) state.view = { range: 'last12', from: '', to: '', category: '', detail: null };
-    state.view.range = 'custom';
-    state.view.from = from.value;
-    state.view.to = to.value;
-    state.view.detail = null;
-    paintDash();
-  }
-
-  async function postDashboard(password) {
-    var url = backendUrl();
-    if (!url) throw new Error('The dashboard service is not connected.');
-    var response = await fetch(url, {
-      method: 'POST',
-      redirect: 'follow',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'dashboard', password: password })
-    });
-    var text = await response.text();
-    try {
-      return JSON.parse(text);
-    } catch (err) {
-      throw new Error('Unexpected response from the dashboard service.');
-    }
+    window.location.assign('dashboard/');
   }
 
   async function loadDocuments() {
