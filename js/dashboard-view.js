@@ -43,6 +43,12 @@
   }
 
   function priors(metric) {
+    if (metric.parts && metric.parts.length) {
+      return '<div class="pr">' + metric.parts.map(function (part) {
+        return '<div><div class="pl">' + escapeHtml(part.label) + '</div><div class="pv">' + part.value +
+          (part.pct == null ? '' : ' <span class="share">' + part.pct + '%</span>') + '</div></div>';
+      }).join('') + '</div>';
+    }
     var labels = metric.labels || ['Last month', 'Last quarter', 'Last year'];
     var cells = [
       [labels[0], metric.lastMonth],
@@ -55,8 +61,9 @@
     }).join('') + '</div>';
   }
 
-  function headline(text, tone, sizeClass, drill) {
-    return '<button type="button" class="big ' + sizeClass + ' tone-' + tone + '" data-drill="' + drill + '">' + text + '</button>';
+  function headline(text, tone, sizeClass, drill, context) {
+    return '<button type="button" class="big ' + sizeClass + ' tone-' + tone + '" data-drill="' + drill + '">' + text + '</button>' +
+      (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
   }
 
   function card(title, key, body, extra, drill) {
@@ -74,7 +81,101 @@
     return Math.ceil(max * 1.2 / 10) * 10;
   }
 
+  function yearLegend(parts, items) {
+    var legendFont = 'font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif"';
+    var x = 8;
+    items.forEach(function (item) {
+      parts.push('<rect x="' + x + '" y="6" width="9" height="9" rx="1" fill="' + item.color + '"/>');
+      parts.push('<text x="' + (x + 13) + '" y="14" ' + legendFont + '>' + escapeHtml(item.label) + '</text>');
+      x += 13 + item.label.length * 6.6 + 14;
+    });
+  }
+
+  function yearGainSvg(series) {
+    var w = 520;
+    var h = 220;
+    var maxUp = 1;
+    var maxDown = 1;
+    series.forEach(function (bar) {
+      maxUp = Math.max(maxUp, bar.joins || 0);
+      maxDown = Math.max(maxDown, bar.losses || 0);
+    });
+    var mid = 118;
+    var sc = Math.min((mid - 36) / maxUp, (h - mid - 28) / maxDown);
+    var n = series.length;
+    var gap = 18;
+    var bw = Math.max(18, Math.min(48, (w - 40 - gap * (n - 1)) / n));
+    var total = n * bw + (n - 1) * gap;
+    var x0 = (w - total) / 2;
+    var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
+    yearLegend(parts, series);
+    series.forEach(function (bar, index) {
+      var x = x0 + index * (bw + gap);
+      var up = (bar.joins || 0) * sc;
+      var down = (bar.losses || 0) * sc;
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.45"/>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
+      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
+  }
+
+  function yearCountSvg(bars, kind) {
+    var w = 420;
+    var h = 150;
+    var max = 1;
+    bars.forEach(function (bar) { max = Math.max(max, bar.value || 0); });
+    var n = bars.length;
+    var gap = 16;
+    var bw = Math.max(22, Math.min(54, (w - 40 - gap * (n - 1)) / n));
+    var total = n * bw + (n - 1) * gap;
+    var x0 = (w - total) / 2;
+    var base = 124;
+    var plot = 78;
+    var parts = [];
+    yearLegend(parts, bars);
+    bars.forEach(function (bar, index) {
+      var height = ((bar.value || 0) / max) * plot;
+      var x = x0 + index * (bw + gap);
+      var y = base - height;
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.value || 0) + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
+  }
+
+  function groupedSvg(groups, key, kind) {
+    var sample = (groups[0] && groups[0].bars) || [];
+    var w = Math.max(420, groups.length * (sample.length * 16 + 28));
+    var h = 150;
+    var max = 1;
+    groups.forEach(function (group) {
+      group.bars.forEach(function (bar) { max = Math.max(max, bar[key] || 0); });
+    });
+    var base = 128;
+    var plot = 82;
+    var slot = (w - 16) / groups.length;
+    var bw = Math.max(6, Math.min(16, (slot - 10) / sample.length));
+    var parts = [];
+    yearLegend(parts, sample);
+    groups.forEach(function (group, index) {
+      var left = 8 + index * slot + (slot - bw * group.bars.length) / 2;
+      group.bars.forEach(function (bar, barIndex) {
+        if (bar.skipped) return;
+        var height = ((bar[key] || 0) / max) * plot;
+        var x = left + barIndex * bw;
+        var y = base - height;
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
+      });
+      parts.push('<text x="' + (8 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
+  }
+
   function gainsSvg(series, selectedId, showLabels, legend) {
+    if (series && series.length && series[0].color) return yearGainSvg(series);
     var any = false;
     (series || []).forEach(function (bucket) {
       if (bucket.joins || bucket.losses || bucket.priorJoins || bucket.priorLosses) any = true;
@@ -287,7 +388,24 @@ function stepControl(step, enabled, compact, attrs) {
     (enabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
 }
 
-function yearControl(view, compact) {
+function yearMenu(view) {
+    var ui = view.ui || {};
+    var open = ui.openMenu === 'year' && view.yearEnabled !== false;
+    var selected = view.chosenYears || [];
+    var summary = selected.length > 2 ? selected.length + ' years' : selected.map(function (year) { return 'FY' + year; }).join(', ');
+    if (!summary) summary = 'Fiscal years';
+    var boxes = (view.years || []).map(function (year) {
+      var on = selected.indexOf(year) !== -1;
+      return '<label class="check"><input type="checkbox" data-year-option="' + year + '"' + (on ? ' checked' : '') + (view.yearEnabled === false ? ' disabled' : '') + '> FY' + year + '</label>';
+    }).join('');
+    return '<div class="multi year-menu' + (open ? ' is-open' : '') + (view.yearEnabled === false ? ' is-off' : '') + '" data-menu="year">' +
+      '<button type="button" class="multi-face" data-menu-toggle="year" aria-expanded="' + open + '" aria-label="Fiscal year"' + (view.yearEnabled === false ? ' disabled' : '') + '>' + escapeHtml(summary) + '</button>' +
+      '<div class="multi-pop"' + (open ? '' : ' hidden') + '>' +
+      '<div class="multi-actions"><button type="button" data-select-all="year">Select all</button><button type="button" data-clear-all="year">Clear all</button></div>' +
+      '<div class="multi-list">' + boxes + '</div></div></div>';
+  }
+
+  function yearControl(view, compact) {
   var step = view.stepper || {
     id: String(view.year),
     value: fiscalLabel(view.year),
@@ -382,12 +500,12 @@ function periodControl(view) {
   function daterow(view) {
     var bounds = model.fiscalBounds(view.year);
     var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
+    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearMenu(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
     return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
       '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
+      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearMenu(view) + periodControl(view) +
       '</div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }
@@ -500,29 +618,36 @@ function periodControl(view) {
     var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var showBarLabels = !view.mobile && view.buckets.length <= 16;
     var members = card('Business Members', 'Members',
-      headline(String(view.members.value), view.members.tone, 'big-members', 'members') + priors(view.members),
+      headline(String(view.members.value), view.members.tone, 'big-members', 'members', view.members.context) + priors(view.members),
       ' card-members', 'members');
     var fresh = card('New Members', 'New Members',
-      headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers') + priors(view.newMembers),
+      headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers', view.newMembers.context) + priors(view.newMembers),
       ' pop', 'newMembers');
     var net = card('Net Gain', 'Net Gain',
-      headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes') + priors(view.net),
+      headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes', view.net.context) + priors(view.net),
       ' pop', 'changes');
     var gains = card('Member Gains and Losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + gainsSvg(view.gains, view.bucket, showBarLabels, view.gainLegend) + '</div>',
+      '<div class="chart-slot">' + (view.groups ? groupedSvg(view.groups, 'joins', 'Member gains and losses') : gainsSvg(view.gains, view.bucket, showBarLabels, view.gainLegend)) + '</div>',
       ' card-gains', 'gains');
-    var single = (view.eventSeries || []).length === 1;
+    var single = (view.eventSeries || []).length === 1 && view.period !== 'year' && !view.groups;
     function seriesChart(values, lastYear, kind) {
+      if (view.period === 'year' && view.yearBars) {
+        var key = kind === 'Events held' ? 'events' : 'attendance';
+        return yearCountSvg(view.yearBars.map(function (bar) {
+          return { label: bar.label, value: bar[key], color: bar.color };
+        }), kind);
+      }
+      if (view.groups) return groupedSvg(view.groups, kind === 'Events held' ? 'events' : 'attendance', kind);
       if (single) return pairSvg((values || [])[0], (lastYear || [])[0], kind, view.gainLegend);
       return lineSvg(values, lastYear, labels, kind, view.mobile);
     }
-    var note = single ? '' : legend();
+    var note = (view.period === 'year' || view.groups || single) ? '' : legend();
     var events = card('Events Held', 'Events Held',
-      headline(String(view.events.value), view.events.tone, 'big-mid', 'events') + priors(view.events) +
+      headline(String(view.events.value), view.events.tone, 'big-mid', 'events', view.events.context) + priors(view.events) +
       '<div class="chart-slot">' + seriesChart(view.eventSeries, view.eventLastYear, 'Events held') + '</div>' + note,
       ' card-events', 'events');
     var attendance = card('Attendee Count', 'Attendance',
-      headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance') + priors(view.attendance) +
+      headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', view.attendance.context) + priors(view.attendance) +
       '<div class="chart-slot">' + seriesChart(view.attendanceSeries, view.attendanceLastYear, 'Attendee Count') + '</div>' + note,
       ' card-attendance', 'attendance');
     var pie = card('Attendee Distribution', 'Attendance Distribution',

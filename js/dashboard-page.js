@@ -252,6 +252,11 @@
     var selectAll = event.target.closest('[data-select-all]');
     if (selectAll) {
       var selectKind = selectAll.getAttribute('data-select-all');
+      if (selectKind === 'year') {
+        ui.openMenu = 'year';
+        update({ type: 'years', years: dash.compute(source, state).years });
+        return;
+      }
       var visible = visibleOptions(selectKind);
       if (selectKind === 'company') {
         var companySet = {};
@@ -270,6 +275,12 @@
     }
     var clearAll = event.target.closest('[data-clear-all]');
     if (clearAll) {
+      if (clearAll.getAttribute('data-clear-all') === 'year') {
+        var available = dash.compute(source, state).years || [];
+        ui.openMenu = 'year';
+        update({ type: 'years', years: [available[available.length - 1]] });
+        return;
+      }
       if (clearAll.getAttribute('data-clear-all') === 'company') {
         state = dash.applyAction(source, state, { type: 'companies', companies: [], allowedPeople: [] });
       } else state = dash.applyAction(source, state, { type: 'people', people: [] });
@@ -391,6 +402,16 @@
       ui.openMenu = 'person';
       state = dash.applyAction(source, state, { type: 'people', people: toggleValue(state.people, target.getAttribute('data-person-option')) });
       paint();
+      return;
+    }
+    if (target && target.hasAttribute('data-year-option')) {
+      var year = Number(target.getAttribute('data-year-option'));
+      var picked = (state.years || []).map(Number);
+      var at = picked.indexOf(year);
+      if (at === -1) picked.push(year);
+      else if (picked.length > 1) picked.splice(at, 1);
+      ui.openMenu = 'year';
+      update({ type: 'years', years: picked });
       return;
     }
     if (target && target.hasAttribute('data-year-select')) {

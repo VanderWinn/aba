@@ -746,6 +746,18 @@ select:focus-visible {
 
 .multi { position: relative; }
 
+.dfilters .year-menu { min-width: 168px; }
+
+.dfilters .year-menu .multi-face { min-height: 30px; padding: 4px 8px; font-weight: 700; white-space: nowrap; }
+
+.dfilters .year-menu .multi-pop { min-width: 190px; }
+
+.year-menu.is-off { opacity: .45; }
+
+.share { color: var(--soft); font-weight: 600; font-size: 11px; }
+
+.share-line { margin: 2px 0 0; color: var(--soft); font-size: 12px; font-weight: 600; }
+
 .multi-face {
   width: 100%;
   text-align: left;

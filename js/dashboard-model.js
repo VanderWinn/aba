@@ -24,7 +24,7 @@
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
-    'Year selector': 'Steps through fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. Period then chooses the whole year, the current quarter, or the current month inside that year. A past year uses its last quarter or its last month. This control is not used when Last 12 months is selected.',
+    'Year selector': 'Choose one or more fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. The page starts with the current year and the year before it. Each selected year gets its own color. This control is not used when Last 12 months is selected.',
     'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to the current fiscal quarter inside that year, or the last quarter of a past year. Month sets every total to the current calendar month inside that year, or the last month of a past year. The current quarter or month runs through today. Last 12 months uses the trailing 12 months and ignores the fiscal year. Each chart period is that period alone. Member Gains and Losses pairs it with the same period last fiscal year.',
     'Year': 'Sets every total to the fiscal year chosen at the left. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
     'Quarter': 'The dates and the big numbers stay on the current fiscal quarter inside the year at the left, through today. A past year uses its last quarter, April through June. The charts show each quarter of that fiscal year separately, Q1 through the current quarter, each beside the same quarter last fiscal year. Later quarters are left off.',
@@ -388,11 +388,42 @@
     };
   }
 
+  function defaultYears(data) {
+    var today = isISO(data && data.asOf) ? data.asOf : '2026-11-24';
+    var current = fiscalYearOf(today);
+    var available = yearsOf(data || { asOf: today });
+    var picked = [current - 1, current].filter(function (year) { return available.indexOf(year) !== -1; });
+    if (!picked.length) picked = [available[available.length - 1] || current];
+    return picked;
+  }
+
+  function normalizeYears(data, list) {
+    var available = yearsOf(data);
+    var picked = [];
+    listOf(list).forEach(function (item) {
+      var year = Number(item);
+      if (available.indexOf(year) !== -1 && picked.indexOf(year) === -1) picked.push(year);
+    });
+    if (!picked.length) return defaultYears(data);
+    picked.sort(function (a, b) { return a - b; });
+    return picked;
+  }
+
+  var YEAR_COLORS = ['#3F768B', '#24785F', '#B84734', '#7D949C', '#2C5563'];
+
+  function yearColor(year, chosen) {
+    var fromEnd = chosen.length - 1 - chosen.indexOf(year);
+    if (fromEnd < 0) fromEnd = 0;
+    return YEAR_COLORS[Math.min(fromEnd, YEAR_COLORS.length - 1)];
+  }
+
   function defaultState(data) {
     var today = isISO(data && data.asOf) ? data.asOf : '2026-11-24';
     var currentQuarter = quarterBounds(quarterIndex(today));
+    var years = defaultYears(data);
     return {
-      year: fiscalYearOf(today),
+      year: years[years.length - 1],
+      years: years,
       quarter: currentQuarter.q,
       month: today.slice(0, 7),
       period: 'year',
@@ -425,8 +456,8 @@
   function resolveView(data, state) {
     var today = isISO(data.asOf) ? data.asOf : '2026-11-24';
     var years = yearsOf(data);
-    var year = Number(state && state.year);
-    if (years.indexOf(year) === -1) year = fiscalYearOf(today);
+    var chosenYears = normalizeYears(data, state && state.years);
+    var year = chosenYears[chosenYears.length - 1];
     var period = state && state.period;
     if (period !== 'year' && period !== 'quarter' && period !== 'month' && period !== 'last12') period = 'year';
     var currentQuarter = quarterBounds(quarterIndex(today));
@@ -461,6 +492,7 @@
       today: today,
       year: year,
       years: years,
+      chosenYears: chosenYears,
       quarter: quarter,
       month: month,
       period: period,
@@ -498,6 +530,7 @@
   function copyState(state) {
     return {
       year: state.year,
+      years: listOf(state.years).map(Number),
       quarter: state.quarter,
       month: state.month || '',
       period: state.period,
@@ -529,7 +562,16 @@
     }
     if (action.type === 'year') {
       if (next.period === 'last12') return next;
+      next.years = [Number(action.year)];
       next.year = Number(action.year);
+      next.bucket = '';
+      syncPeriodSlice(data, next);
+      return next;
+    }
+    if (action.type === 'years') {
+      if (next.period === 'last12') return next;
+      next.years = normalizeYears(data, action.years);
+      next.year = next.years[next.years.length - 1];
       next.bucket = '';
       syncPeriodSlice(data, next);
       return next;
@@ -584,7 +626,10 @@
   }
 
   function stateHash(state) {
-    var parts = ['year=' + Number(state.year || 0), 'period=' + (state.period || 'year')];
+    var parts = ['period=' + (state.period || 'year')];
+    var fys = listOf(state.years).map(Number).filter(function (year) { return year > 0; });
+    if (fys.length) parts.push('fys=' + fys.join(','));
+    else parts.push('year=' + Number(state.year || 0));
     if (state.quarter) parts.push('quarter=' + Number(state.quarter));
     if (state.month) parts.push('month=' + state.month);
     var hashTypes = listOf(state.eventTypes);
@@ -610,7 +655,9 @@
       try { value = decodeURIComponent(value); } catch (err) {}
       bag[key] = value;
     });
-    if (bag.year && /^\d{4}$/.test(bag.year)) state.year = Number(bag.year);
+    if (bag.fys) {
+      state.years = String(bag.fys).split(',').map(Number).filter(function (year) { return /^\d{4}$/.test(String(year)); });
+    } else if (bag.year && /^\d{4}$/.test(bag.year)) state.year = Number(bag.year);
     if (/^[1-4]$/.test(bag.quarter)) state.quarter = Number(bag.quarter);
     if (/^\d{4}-\d{2}$/.test(bag.month)) state.month = bag.month;
     if (bag.period === 'year' || bag.period === 'quarter' || bag.period === 'month' || bag.period === 'last12') {
@@ -744,7 +791,49 @@
       if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view);
       return flowBetween(data, start, end, roster, eventTypes);
     }
-    var gainSeries = buckets.map(function (bucket) {
+    function windowForYear(year) {
+      if (view.period === 'quarter') {
+        return quarterWindow(year, quarterForYear(year, view.today), view.today) || periodRange('year', year, view.today);
+      }
+      if (view.period === 'month') {
+        return monthWindow(monthForYear(year, view.today), view.today) || periodRange('year', year, view.today);
+      }
+      if (view.period === 'last12') return view.range;
+      return periodRange('year', year, view.today);
+    }
+    var chosen = view.chosenYears || [view.year];
+    var yearBars = chosen.map(function (year) {
+      var span = windowForYear(year);
+      var flow = flowSpan(span.start, span.end);
+      return {
+        year: year,
+        label: 'FY' + year,
+        color: yearColor(year, chosen),
+        start: span.start,
+        end: span.end,
+        joins: flow.joins,
+        losses: flow.losses,
+        net: flow.net,
+        events: countEvents(span.start, span.end),
+        attendance: sumAttendance(span.start, span.end),
+        members: memberStock(span.start, span.end),
+        newMembers: flow.joins,
+        memberAtt: sumAttendance(span.start, span.end, 'Member'),
+        guestAtt: sumAttendance(span.start, span.end, 'Guest')
+      };
+    });
+    var compareYears = view.period === 'year';
+    var gainSeries = compareYears ? yearBars.map(function (bar) {
+      return {
+        id: bar.start + ':' + bar.end,
+        label: bar.label,
+        joins: bar.joins,
+        losses: bar.losses,
+        priorJoins: 0,
+        priorLosses: 0,
+        color: bar.color
+      };
+    }) : buckets.map(function (bucket) {
       var flow = flowSpan(bucket.start, bucket.end);
       var priorSpan = priorYearRange(bucket.start, bucket.end);
       var prior = flowSpan(priorSpan.start, priorSpan.end);
@@ -770,20 +859,59 @@
       lineGrouping = view.grouping;
     }
     var lineBuckets = bucketsFor(lineRange, lineGrouping);
-    var eventSeries = lineBuckets.map(function (bucket) {
+    var eventSeries = compareYears ? yearBars.map(function (bar) { return bar.events; }) : lineBuckets.map(function (bucket) {
       return countEvents(bucket.start, bucket.end);
     });
-    var eventLastYear = lineBuckets.map(function (bucket) {
+    var eventLastYear = compareYears ? [] : lineBuckets.map(function (bucket) {
       var shifted = priorYearRange(bucket.start, bucket.end);
       return countEvents(shifted.start, shifted.end);
     });
-    var attendanceSeries = lineBuckets.map(function (bucket) {
+    var attendanceSeries = compareYears ? yearBars.map(function (bar) { return bar.attendance; }) : lineBuckets.map(function (bucket) {
       return sumAttendance(bucket.start, bucket.end);
     });
-    var attendanceLastYear = lineBuckets.map(function (bucket) {
+    var attendanceLastYear = compareYears ? [] : lineBuckets.map(function (bucket) {
       var shifted = priorYearRange(bucket.start, bucket.end);
       return sumAttendance(shifted.start, shifted.end);
     });
+    if (compareYears) lineBuckets = yearBars.map(function (bar) {
+      return { id: bar.start + ':' + bar.end, label: bar.label, start: bar.start, end: bar.end, color: bar.color };
+    });
+
+    var groups = null;
+    if (chosen.length > 1 && (view.period === 'month' || view.period === 'quarter')) {
+      var slots = view.period === 'quarter' ? [1, 2, 3, 4].map(function (quarter) {
+        return {
+          label: 'Q' + quarter,
+          span: function (year) { return quarterWindow(year, quarter, view.today); }
+        };
+      }) : [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6].map(function (month, index) {
+        var letters = ['J', 'A', 'S', 'O', 'N', 'D', 'J', 'F', 'M', 'A', 'M', 'J'];
+        return {
+          label: letters[index],
+          span: function (year) {
+            var calendarYear = month >= 7 ? year - 1 : year;
+            return monthWindow(iso(calendarYear, month, 1).slice(0, 7), view.today);
+          }
+        };
+      });
+      groups = [];
+      slots.forEach(function (slot) {
+        var bars = chosen.map(function (year) {
+          var span = slot.span(year);
+          var flow = span ? flowSpan(span.start, span.end) : { joins: 0, losses: 0 };
+          return {
+            color: yearColor(year, chosen),
+            label: 'FY' + year,
+            events: span ? countEvents(span.start, span.end) : 0,
+            attendance: span ? sumAttendance(span.start, span.end) : 0,
+            joins: flow.joins,
+            losses: flow.losses,
+            skipped: !span
+          };
+        });
+        if (bars.some(function (bar) { return !bar.skipped; })) groups.push({ label: slot.label, bars: bars });
+      });
+    }
 
     var counted = narrowed
       ? directory.narrow.events(measure.start, measure.end, [], pieAudience, view)
@@ -807,6 +935,50 @@
     }
     var pieTotal = pieMembers + pieGuests;
     var memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
+    var multi = compareYears && yearBars.length > 1;
+    var membersMetric = memberStockComparisons(measure, memberStock);
+    var freshMetric = memberFlowComparisons(measure, joins);
+    var netMetric = memberFlowComparisons(measure, net);
+    var eventsMetric = comparisons(measure, countEvents);
+    var attendanceMetric = comparisons(measure, function (start, end) { return sumAttendance(start, end); });
+    if (multi) {
+      function shareParts(read) {
+        var total = 0;
+        yearBars.forEach(function (bar) { total += read(bar); });
+        return yearBars.map(function (bar) {
+          var value = read(bar);
+          return { label: bar.label, value: value, pct: total ? Math.round((value / total) * 100) : 0 };
+        });
+      }
+      var latest = yearBars[yearBars.length - 1];
+      var previous = yearBars[yearBars.length - 2];
+      membersMetric = {
+        value: latest.members,
+        tone: 'flat',
+        color: INK,
+        labels: [],
+        parts: yearBars.map(function (bar) { return { label: bar.label, value: bar.members, pct: null }; }),
+        context: previous.members ? Math.round(((latest.members - previous.members) / previous.members) * 100) + '% vs ' + previous.label : ''
+      };
+      freshMetric = { value: yearBars.reduce(function (sum, bar) { return sum + bar.newMembers; }, 0), tone: 'flat', color: INK, labels: [], parts: shareParts(function (bar) { return bar.newMembers; }) };
+      netMetric = { value: yearBars.reduce(function (sum, bar) { return sum + bar.net; }, 0), tone: 'flat', color: INK, labels: [], parts: shareParts(function (bar) { return bar.net; }) };
+      eventsMetric = { value: yearBars.reduce(function (sum, bar) { return sum + bar.events; }, 0), tone: 'flat', color: INK, labels: [], parts: shareParts(function (bar) { return bar.events; }) };
+      attendanceMetric = { value: yearBars.reduce(function (sum, bar) { return sum + bar.attendance; }, 0), tone: 'flat', color: INK, labels: [], parts: shareParts(function (bar) { return bar.attendance; }) };
+      pieMembers = 0;
+      pieGuests = 0;
+      yearBars.forEach(function (bar) {
+        pieMembers += bar.memberAtt;
+        pieGuests += bar.guestAtt;
+      });
+      pieTotal = pieMembers + pieGuests;
+      memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
+    } else if (compareYears && yearBars.length === 1) {
+      eventsMetric = comparisons(windowForYear(yearBars[0].year), countEvents);
+      attendanceMetric = comparisons(windowForYear(yearBars[0].year), function (start, end) { return sumAttendance(start, end); });
+      membersMetric = memberStockComparisons(windowForYear(yearBars[0].year), memberStock);
+      freshMetric = memberFlowComparisons(windowForYear(yearBars[0].year), joins);
+      netMetric = memberFlowComparisons(windowForYear(yearBars[0].year), net);
+    }
 
     return {
       example: data.example === true,
@@ -829,15 +1001,18 @@
       bucket: selected ? selected.id : '',
       buckets: buckets,
       eventCounts: typeCounts,
-      members: memberStockComparisons(measure, memberStock),
-      newMembers: memberFlowComparisons(measure, joins),
-      net: memberFlowComparisons(measure, net),
+      chosenYears: chosen,
+      yearBars: yearBars,
+      groups: groups,
+      members: membersMetric,
+      newMembers: freshMetric,
+      net: netMetric,
       gains: gainSeries,
       gainLegend: gainLegend,
-      events: comparisons(measure, countEvents),
+      events: eventsMetric,
       eventSeries: eventSeries,
       eventLastYear: eventLastYear,
-      attendance: comparisons(measure, function (start, end) { return sumAttendance(start, end); }),
+      attendance: attendanceMetric,
       attendanceSeries: attendanceSeries,
       attendanceLastYear: attendanceLastYear,
       pie: {
