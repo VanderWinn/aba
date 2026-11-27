@@ -818,9 +818,12 @@ function stepControl(step, enabled, compact, attrs) {
 
   function eventTypeBars(view, w, h) {
     var counts = view.eventCounts || {};
+    var selected = view.eventTypes || [];
     var names = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
     var rows = names.map(function (name) {
-      return { name: name, value: counts[name] || 0 };
+      var value = counts[name] || 0;
+      if (selected.length && selected.indexOf(name) === -1) value = 0;
+      return { name: name, value: value };
     });
     rows.sort(function (a, b) {
       if (b.value !== a.value) return b.value - a.value;
@@ -1144,7 +1147,7 @@ function stepControl(step, enabled, compact, attrs) {
     var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
     var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="detail-grid">' +
-      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot" data-chart="events">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
       card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
