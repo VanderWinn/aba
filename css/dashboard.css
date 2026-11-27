@@ -474,7 +474,7 @@ select:focus-visible {
 
 .card.pop { border-top-color: var(--aba-teal); }
 
-.hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; width: 100%; }
+.hd { display: block; width: 100%; }
 
 .ttl {
   margin: 0;
@@ -483,9 +483,10 @@ select:focus-visible {
   color: var(--deep);
   font-family: Montserrat, Raleway, sans-serif;
   letter-spacing: .2px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   line-height: 1.3;
+  width: 100%;
   min-width: 0;
 }
 
@@ -1052,10 +1053,13 @@ select:focus-visible {
   font-family: Montserrat, Raleway, sans-serif;
   font-size: var(--kpi-size);
   font-weight: var(--kpi-weight);
-  letter-spacing: -1px;
+  letter-spacing: 0;
   line-height: 1;
   text-align: center;
 }
+.card-foot { margin-top: auto; padding-top: 12px; }
+.kpi-row .card, .chart-grid .card, .detail-grid .card { height: 100%; }
+.kpi-row .period-tag, .detail-grid .period-tag { min-height: 1.35em; }
 .kpi-caption, .period-tag { margin: 0; color: #3d4c50; font-size: var(--tag-size); font-weight: 650; line-height: 1.35; text-align: center; }
 .card.kpi-members { border-top-color: #3F768B; background: #f4f8fa; }
 .card.kpi-members .kpi-num { color: #2C5563; }

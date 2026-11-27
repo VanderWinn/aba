@@ -73,11 +73,11 @@
       var attr = jump.indexOf('page:') === 0
         ? 'data-page="' + jump.slice(5) + '"'
         : 'data-drill="' + escapeHtml(jump) + '"';
-      link = '<button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button>';
+      link = '<div class="card-foot"><button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button></div>';
     }
     var icon = key ? hint('', key, true) : '';
     return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + escapeHtml(title) + icon +
-      '</h2>' + link + '</div><div class="bodycol">' + body + '</div></section>';
+      '</h2></div><div class="bodycol">' + body + '</div>' + link + '</section>';
   }
 
   function niceMax(values) {
@@ -796,7 +796,7 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function periodTag(metric) {
-    return metric && metric.tag ? '<p class="period-tag">' + escapeHtml(metric.tag) + '</p>' : '';
+    return '<p class="period-tag">' + (metric && metric.tag ? escapeHtml(metric.tag) : '\u00a0') + '</p>';
   }
 
   function legendItems(view) {
@@ -826,9 +826,9 @@ function stepControl(step, enabled, compact, attrs) {
     var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
     return '<div class="kpi-row">' +
       card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(null) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', '', '') +
       card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', '', '') +
@@ -843,8 +843,8 @@ function stepControl(step, enabled, compact, attrs) {
   function membership(view) {
     return '<div class="detail-grid">' +
       card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
-      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + periodTag(null) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + periodTag(null) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
       gainsCard(view) + '</div>';
   }
 
@@ -902,10 +902,12 @@ function stepControl(step, enabled, compact, attrs) {
       ? '<button type="button" class="filters-btn" data-filters aria-expanded="' + (filtersOpen ? 'true' : 'false') + '" aria-controls="filters">Filters' + (view.filtersActive ? ' <span class="tick">✓</span>' : '') + '</button>'
       : '';
     var body = page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view));
-    var ytdTip = view.ytdNote ? hint('', 'Year to date', true, ' ' + view.ytdNote) : '';
-    var scopeTip = page === 'membership' ? hint('', 'Membership filters', true) : '';
+    var tipExtra = '';
+    if (view.ytdNote) tipExtra += ' ' + view.ytdNote;
+    if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers.';
+    var contextTip = tipExtra ? hint('', view.ytdNote ? 'Year to date' : 'Membership filters', true, tipExtra) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
-      '<p class="context-line">' + escapeHtml(view.contextLine || '') + ytdTip + scopeTip + '</p>' + activeChips(view) + filterBtn +
+      '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + activeChips(view) + filterBtn +
       '<div class="body">' + side + '<div class="main" id="content">' + body + '</div></div></div>' +
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }
