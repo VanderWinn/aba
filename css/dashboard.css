@@ -21,6 +21,15 @@
   --pop: var(--aba-teal);
   --pop-text: var(--aba-teal-dark);
   --orange: var(--aba-muted);
+  --card-title-size: 13px;
+  --card-title-weight: 700;
+  --kpi-size: 48px;
+  --kpi-weight: 700;
+  --tag-size: 13px;
+  --year-label-size: 12px;
+  --year-value-size: 22px;
+  --year-pct-size: 14px;
+  --legend-size: 12px;
 }
 
 * { box-sizing: border-box; }
@@ -459,7 +468,7 @@ select:focus-visible {
 
 .stack .bodycol { flex: 0 0 auto; min-height: auto; justify-content: flex-start; gap: 4px; }
 
-.stack .big-mid { font-size: 48px; line-height: 1; }
+.stack .big-mid { font-size: var(--kpi-size); line-height: 1; }
 
 .stack .pr { margin-top: 2px; }
 
@@ -469,8 +478,8 @@ select:focus-visible {
 
 .ttl {
   margin: 0;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--card-title-size);
+  font-weight: var(--card-title-weight);
   color: var(--deep);
   font-family: Montserrat, Raleway, sans-serif;
   letter-spacing: .2px;
@@ -510,19 +519,13 @@ select:focus-visible {
   font-family: Montserrat, Raleway, sans-serif;
 }
 
-.big-members { font-size: 88px; }
+.big-members { font-size: var(--kpi-size); }
 
-.card-members .ttl { font-size: 13.5px; }
-
-.card-members .big-members { font-size: 99px; }
-
-.card-members .pl { font-size: 13.5px; white-space: nowrap; }
-
-.card-members .pv { font-size: 16px; }
+.card-members .pl { white-space: nowrap; }
 
 .card-members .delta { font-size: 18px; }
 
-.big-mid { font-size: 64px; }
+.big-mid { font-size: var(--kpi-size); }
 
 .tone-up { color: var(--pop); }
 
@@ -540,9 +543,11 @@ select:focus-visible {
 
 .pr > div { flex: 1; min-width: 0; text-align: center; }
 
-.pl { font-size: 12px; color: #666; font-weight: 600; line-height: 1.25; }
+.pl { font-size: var(--year-label-size); color: #5c6b70; font-weight: 600; line-height: 1.3; }
 
-.pv { font-size: 14px; color: #5a6a6e; font-weight: 600; white-space: nowrap; }
+.pv { font-size: var(--year-value-size); color: #243033; font-weight: 700; white-space: nowrap; line-height: 1.2; }
+
+.share { font-size: var(--year-pct-size); font-weight: 650; }
 
 .delta { font-style: normal; font-size: 16px; margin-left: 4px; font-weight: 700; }
 
@@ -841,8 +846,7 @@ select:focus-visible {
 @media (max-width: 1100px) {
   .pill { padding: 0 8px; font-size: 12px; }
   .pseg button { padding: 6px 8px; }
-  .big-members { font-size: 72px; }
-  .big-mid { font-size: 52px; }
+  .big-members, .big-mid, .kpi-num { font-size: var(--kpi-size); }
 }
 
 @media (max-width: 800px) {
@@ -960,20 +964,11 @@ select:focus-visible {
 
   .stack .card { margin: 0; padding: 8px 10px; }
 
-  .big-members { font-size: 56px; }
-
-  .card-members .big-members { font-size: 63px; }
-
-  .card-members .pl { font-size: 12.5px; }
-
-  .card-members .pv,
-  .card-members .delta { font-size: 13.5px; }
-
-  .big-mid { font-size: 40px; }
-
-  .pl { font-size: 11px; }
-
-  .pv, .delta { font-size: 12px; }
+  :root {
+    --kpi-size: 40px;
+    --year-value-size: 18px;
+    --year-pct-size: 13px;
+  }
 
   .sig { min-height: 40px; padding: 0 12px; }
 
@@ -1050,31 +1045,29 @@ select:focus-visible {
 .kpi-row { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
 .chart-grid { grid-template-columns: 1.15fr 1fr; margin-top: 12px; }
 .detail-grid { grid-template-columns: 1fr 1fr; margin-top: 12px; }
-.card-kpi .hd { flex-direction: column; align-items: flex-start; gap: 2px; }
-.card-kpi .ttl { font-size: 14px; line-height: 1.25; }
-.card-kpi .bodycol, .detail-grid .bodycol, .chart-grid .bodycol { min-height: auto; justify-content: flex-start; align-items: stretch; overflow: visible; }
-.kpi-value {
-  margin: 2px 0 0;
+.card-kpi .bodycol, .detail-grid .bodycol, .chart-grid .bodycol { min-height: auto; justify-content: flex-start; align-items: stretch; overflow: visible; gap: 20px; }
+.kpi-num, .kpi-value, .big {
+  margin: 0;
+  width: 100%;
   font-family: Montserrat, Raleway, sans-serif;
-  font-size: 48px;
-  font-weight: 700;
+  font-size: var(--kpi-size);
+  font-weight: var(--kpi-weight);
   letter-spacing: -1px;
   line-height: 1;
+  text-align: center;
 }
-.kpi-caption, .period-tag { margin: 6px 0 0; color: #3d4c50; font-size: 13px; font-weight: 650; line-height: 1.35; }
+.kpi-caption, .period-tag { margin: 0; color: #3d4c50; font-size: var(--tag-size); font-weight: 650; line-height: 1.35; text-align: center; }
 .card.kpi-members { border-top-color: #3F768B; background: #f4f8fa; }
-.card.kpi-members .kpi-value, .card.kpi-members .big { color: #2C5563; }
+.card.kpi-members .kpi-num { color: #2C5563; }
 .card.kpi-net { border-top-color: #24785F; background: #f4faf7; }
-.card.kpi-net .kpi-value, .card.kpi-net .big { color: #1d6b52; }
+.card.kpi-net .kpi-num { color: #1d6b52; }
 .card.kpi-net .tone-down { color: #D01F25; }
 .card.kpi-events { border-top-color: #C4841D; background: #fbf7ef; }
-.card.kpi-events .kpi-value, .card.kpi-events .big { color: #7A5410; }
+.card.kpi-events .kpi-num { color: #7A5410; }
 .card.kpi-visits { border-top-color: #3D5A80; background: #f4f7fb; }
-.card.kpi-visits .kpi-value, .card.kpi-visits .big { color: #2C4464; }
+.card.kpi-visits .kpi-num { color: #2C4464; }
 .card.kpi-noshow { border-top-color: #6B4C7A; background: #f8f4fa; }
-.card.kpi-noshow .kpi-value { color: #5A3D68; font-size: 34px; white-space: nowrap; }
-.kpi-of { font-size: 0.45em; letter-spacing: 0; font-weight: 700; color: #3d4c50; }
-.kpi-pct { font-weight: 800; }
+.card.kpi-noshow .kpi-num { color: #5A3D68; }
 .detail-link {
   border: 0;
   background: transparent;
@@ -1133,7 +1126,7 @@ select:focus-visible {
 .hbar-fill { display: block; height: 100%; }
 .hbar-fill.member { background: repeating-linear-gradient(90deg, #3F768B 0 7px, #2C5563 7px 9px); }
 .hbar-fill.guest { background: radial-gradient(circle, #fff 1.1px, transparent 1.3px), #7D949C; background-size: 7px 7px; }
-.detail-grid .big-mid { font-size: 48px; }
+.detail-grid .big-mid, .detail-grid .kpi-num { font-size: var(--kpi-size); }
 .detail-grid .pr, .chart-grid .pr { flex-wrap: wrap; }
 .detail-grid .card-events,
 .detail-grid .card-attendance,
@@ -1156,7 +1149,9 @@ select:focus-visible {
 }
 .detail-grid .card-events .big,
 .detail-grid .card-attendance .big,
-.detail-grid .card-noshow .kpi-value {
+.detail-grid .card-events .kpi-num,
+.detail-grid .card-attendance .kpi-num,
+.detail-grid .card-noshow .kpi-num {
   margin: 0;
   line-height: 1;
   text-align: center;
@@ -1167,33 +1162,11 @@ select:focus-visible {
   gap: 16px;
   align-items: flex-start;
 }
-.detail-grid .card-events .pl,
-.detail-grid .card-attendance .pl,
-.detail-grid .card-noshow .pl,
-.kpi-row .pl,
-.chart-grid .pl {
-  font-size: 12px;
-  line-height: 1.3;
-  font-weight: 600;
-  color: #5c6b70;
-}
-.detail-grid .card-events .pv,
-.detail-grid .card-attendance .pv,
-.detail-grid .card-noshow .pv,
-.kpi-row .pv,
-.chart-grid .pv {
-  font-size: 22px;
-  line-height: 1.2;
-  font-weight: 700;
-  color: #243033;
-  margin-top: 4px;
-}
-.detail-grid .card-events .share,
-.detail-grid .card-attendance .share,
-.detail-grid .card-noshow .share,
-.kpi-row .share,
-.chart-grid .share {
-  font-size: 14px;
+.pr .pl { font-size: var(--year-label-size); }
+.pr .pv { font-size: var(--year-value-size); margin-top: 4px; }
+.pr .share { font-size: var(--year-pct-size); font-weight: 650; color: #3d4c50; }
+.chart-key, .donut-label {
+  font-size: var(--legend-size);
   font-weight: 650;
   color: #3d4c50;
 }
@@ -1202,9 +1175,6 @@ select:focus-visible {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px 14px;
-  font-size: 12px;
-  font-weight: 650;
-  color: #3d4c50;
 }
 .chart-key .key-item { display: inline-flex; align-items: center; gap: 6px; }
 .chart-key i {
@@ -1264,11 +1234,6 @@ select:focus-visible {
   .detail-grid .card-events .chart-slot,
   .detail-grid .card-attendance .chart-slot,
   .detail-grid .card-noshow .chart-slot { min-height: 0; padding-bottom: 4px; }
-  .card.kpi-noshow .kpi-value { font-size: 28px; white-space: normal; }
-  .detail-grid .card-events .pv,
-  .detail-grid .card-attendance .pv,
-  .detail-grid .card-noshow .pv,
-  .kpi-row .pv { font-size: 18px; }
   .clear-filters { margin-left: 0; }
-  .kpi-value { font-size: 40px; }
+  .kpi-row .bodycol, .chart-grid .bodycol, .detail-grid .bodycol { gap: 16px; }
 }
