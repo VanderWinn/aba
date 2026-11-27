@@ -158,7 +158,9 @@
       view.drill = ui.drill;
     }
     var dashRoot = document.getElementById('dash');
-    dashRoot.classList.toggle('page-overview', (view.page || 'overview') === 'overview');
+    var pageName = view.page || 'overview';
+    dashRoot.classList.remove('page-overview', 'page-membership', 'page-events');
+    dashRoot.classList.add('page-fit', 'page-' + pageName);
     dashRoot.innerHTML = viewApi.render(view);
     if (viewApi.fitCharts) viewApi.fitCharts(dashRoot, view);
     if (restore) {

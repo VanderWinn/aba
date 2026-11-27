@@ -1223,15 +1223,15 @@ select:focus-visible {
 .side .h { color: var(--soft); }
 
 @media (min-width: 801px) {
-  #dash.page-overview {
+  #dash.page-fit {
     height: 100vh;
     max-height: 100vh;
   }
-  #dash.page-overview .docbar { min-height: 48px; padding: 0 16px; }
-  #dash.page-overview .mark { height: 32px; }
-  #dash.page-overview .mark img { height: 26px; }
-  #dash.page-overview .sig { min-height: 28px; padding: 0 16px; }
-  #dash.page-overview .shell {
+  #dash.page-fit .docbar { min-height: 48px; padding: 0 16px; }
+  #dash.page-fit .mark { height: 32px; }
+  #dash.page-fit .mark img { height: 26px; }
+  #dash.page-fit .sig { min-height: 28px; padding: 0 16px; }
+  #dash.page-fit .shell {
     flex: 1 1 auto;
     min-height: 0;
     padding: 12px 16px 8px;
@@ -1240,9 +1240,9 @@ select:focus-visible {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr);
   }
-  #dash.page-overview .view-tabs { grid-column: 1; grid-row: 1; align-self: center; }
-  #dash.page-overview .view-tabs button { min-height: 32px; padding: 4px 10px; }
-  #dash.page-overview .controls {
+  #dash.page-fit .view-tabs { grid-column: 1; grid-row: 1; align-self: center; }
+  #dash.page-fit .view-tabs button { min-height: 32px; padding: 4px 10px; }
+  #dash.page-fit .controls {
     grid-column: 2;
     grid-row: 1;
     align-self: center;
@@ -1250,45 +1250,113 @@ select:focus-visible {
     align-items: center;
     gap: 12px 16px;
   }
-  #dash.page-overview .controls .lab { display: inline; margin: 0 8px 0 0; }
-  #dash.page-overview .context-line { grid-column: 1 / -1; grid-row: 2; white-space: nowrap; }
-  #dash.page-overview .body { grid-column: 1 / -1; grid-row: 3; min-height: 0; height: 100%; }
-  #dash.page-overview .main { height: 100%; min-height: 0; gap: 12px; }
-  #dash.page-overview .kpi-row { flex: 0 0 auto; }
-  #dash.page-overview .kpi-row .card,
-  #dash.page-overview .chart-grid .card { padding: 8px 12px 6px; }
-  #dash.page-overview .kpi-row .bodycol { gap: 4px; }
-  #dash.page-overview .card-foot { padding-top: 4px; }
-  #dash.page-overview .chart-grid {
+  #dash.page-fit .controls .lab { display: inline; margin: 0 8px 0 0; }
+  #dash.page-fit .context-line { grid-column: 1 / -1; grid-row: 2; white-space: nowrap; }
+  #dash.page-fit .body { grid-column: 1 / -1; grid-row: 3; min-height: 0; height: 100%; }
+  #dash.page-fit .main { height: 100%; min-height: 0; gap: 12px; }
+  #dash.page-fit .kpi-row { flex: 0 0 auto; }
+  #dash.page-fit .kpi-row .card,
+  #dash.page-fit .chart-grid .card { padding: 8px 12px 6px; }
+  #dash.page-fit .kpi-row .bodycol { gap: 4px; }
+  #dash.page-fit .card-foot { padding-top: 4px; }
+  #dash.page-fit .chart-grid {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
-  #dash.page-overview .chart-grid .card { min-height: 0; overflow: hidden; }
-  #dash.page-overview .chart-grid .bodycol { flex: 1 1 auto; min-height: 0; gap: 8px; }
-  #dash.page-overview .chart-grid .chart-slot,
-  #dash.page-overview .chart-grid .visit-donut {
+  #dash.page-fit .chart-grid .card { min-height: 0; overflow: hidden; }
+  #dash.page-fit .chart-grid .bodycol { flex: 1 1 auto; min-height: 0; gap: 8px; }
+  #dash.page-fit .chart-grid .chart-slot,
+  #dash.page-fit .chart-grid .visit-donut {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     overflow: hidden;
   }
-  #dash.page-overview .chart-grid .chart,
-  #dash.page-overview .chart-grid .pie {
+  #dash.page-fit .chart-grid .chart,
+  #dash.page-fit .chart-grid .pie {
     width: 100%;
     height: 100%;
     max-height: 100%;
   }
-  #dash.page-overview .chart-grid .donut {
+  #dash.page-fit .chart-grid .donut {
     width: auto;
     height: auto;
     max-height: 72%;
     max-width: 42%;
     flex: 0 1 auto;
   }
-  #dash.page-overview .chart-grid .donut-labels { flex: 1 1 auto; min-width: 0; }
-  #dash.page-overview .donut-label { white-space: nowrap; height: auto; }
+  #dash.page-fit .chart-grid .donut-labels { flex: 1 1 auto; min-width: 0; }
+  #dash.page-fit .donut-label { white-space: nowrap; height: auto; }
+  #dash.page-membership .detail-grid,
+  #dash.page-events .detail-grid {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+  }
+  #dash.page-membership .detail-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  #dash.page-membership .detail-grid .card { height: auto; }
+  #dash.page-membership .detail-grid .card-gains {
+    grid-column: 1 / -1;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #dash.page-membership .kpi-members .card,
+  #dash.page-membership .detail-grid > .card:not(.card-gains) {
+    padding: 8px 12px 6px;
+  }
+  #dash.page-membership .detail-grid > .card:not(.card-gains) .bodycol { gap: 4px; }
+  #dash.page-events .body { min-height: 0; }
+  #dash.page-events .side { max-height: 100%; overflow: auto; }
+  #dash.page-events .main { height: 100%; min-height: 0; }
+  #dash.page-events .detail-grid {
+    grid-template-columns: 1.15fr 1.15fr 0.9fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "events visits donut"
+      "noshow renewal renewal";
+  }
+  #dash.page-events .card-events { grid-area: events; }
+  #dash.page-events .card-attendance { grid-area: visits; }
+  #dash.page-events .card-noshow { grid-area: noshow; }
+  #dash.page-events .card-renewal { grid-area: renewal; }
+  #dash.page-events .card-pie { grid-area: donut; }
+  #dash.page-events .detail-grid .card,
+  #dash.page-membership .card-gains {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #dash.page-events .detail-grid .card { height: 100%; }
+  #dash.page-events .detail-grid .bodycol,
+  #dash.page-membership .card-gains .bodycol {
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 8px;
+  }
+  #dash.page-events .detail-grid .chart-slot,
+  #dash.page-events .detail-grid .visit-donut,
+  #dash.page-membership .card-gains .chart-slot {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  #dash.page-events .detail-grid .chart,
+  #dash.page-membership .card-gains .chart {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+  }
+  #dash.page-events .visit-donut { align-items: center; }
+  #dash.page-events .donut { max-height: 70%; width: auto; height: auto; flex: 0 1 auto; }
 }
 
 @media (max-width: 1100px) {
