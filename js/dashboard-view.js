@@ -35,32 +35,6 @@
     return '0';
   }
 
-  function delta(current, prior) {
-    var diff = current - prior;
-    if (diff > 0) return '<i class="delta delta-up">▲' + diff + '</i>';
-    if (diff < 0) return '<i class="delta delta-down">▼' + Math.abs(diff) + '</i>';
-    return '<i class="delta delta-flat">●0</i>';
-  }
-
-  function priors(metric) {
-    if (metric.parts && metric.parts.length) {
-      return '<div class="pr">' + metric.parts.map(function (part) {
-        return '<div><div class="pl">' + escapeHtml(part.label) + '</div><div class="pv">' + part.value +
-          (part.pct == null ? '' : ' <span class="share">' + part.pct + '%</span>') + '</div></div>';
-      }).join('') + '</div>';
-    }
-    var labels = metric.labels || ['Last month', 'Last quarter', 'Last year'];
-    var cells = [
-      [labels[0], metric.lastMonth],
-      [labels[1], metric.lastQuarter],
-      [labels[2], metric.lastYear]
-    ];
-    return '<div class="pr">' + cells.map(function (cell) {
-      return '<div><div class="pl">' + escapeHtml(cell[0]) + '</div><div class="pv">' +
-        cell[1] + delta(metric.value, cell[1]) + '</div></div>';
-    }).join('') + '</div>';
-  }
-
   function headline(text, tone, sizeClass, drill, context) {
     return '<button type="button" class="big ' + sizeClass + ' tone-' + tone + '" data-drill="' + drill + '">' + text + '</button>' +
       (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
@@ -106,9 +80,9 @@
     });
   }
 
-  function yearGainSvg(series) {
-    var w = 520;
-    var h = 220;
+  function yearGainSvg(series, w, h) {
+    w = w || 520;
+    h = h || 220;
     var maxUp = 1;
     var maxDown = 1;
     series.forEach(function (bar) {
@@ -130,15 +104,15 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
-      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
-      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
+      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function yearCountSvg(bars, kind) {
-    var w = 420;
-    var h = 150;
+  function yearCountSvg(bars, kind, w, h) {
+    w = w || 420;
+    h = h || 132;
     var max = 1;
     bars.forEach(function (bar) { max = Math.max(max, bar.value || 0); });
     var n = bars.length;
@@ -146,8 +120,8 @@
     var bw = Math.max(22, Math.min(54, (w - 40 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var base = 124;
-    var plot = 78;
+    var base = Math.max(48, h - 22);
+    var plot = Math.max(36, base - 24);
     var parts = [];
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
@@ -186,8 +160,8 @@
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function gainsSvg(series, selectedId, showLabels, legend) {
-    if (series && series.length && series[0].color) return yearGainSvg(series);
+  function gainsSvg(series, selectedId, showLabels, legend, w, h) {
+    if (series && series.length && series[0].color) return yearGainSvg(series, w, h);
     var any = false;
     (series || []).forEach(function (bucket) {
       if (bucket.joins || bucket.losses || bucket.priorJoins || bucket.priorLosses) any = true;
@@ -196,8 +170,8 @@
       return emptyChart(showLabels ? 'is-gains' : 'is-gains-short');
     }
     legend = legend || { current: 'This FY', prior: 'Last FY' };
-    var w = 520;
-    var h = showLabels ? 340 : 150;
+    w = w || 520;
+    h = h || (showLabels ? 240 : 220);
     var labelValues = !!showLabels || series.length <= 6;
     var maxUp = 1;
     var maxDown = 1;
@@ -215,7 +189,7 @@
     var maxPair = n <= 1 ? 132 : (n <= 4 ? 96 : (showLabels ? 52 : 36));
     var pair = Math.min(cw * 0.78, maxPair);
     var bw = Math.max(4, (pair - gap) / 2);
-    var font = showLabels ? 12 : 10;
+    var font = 12;
     var parts = ['<line x1="6" y1="' + mid + '" x2="' + (w - 6) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
@@ -228,23 +202,14 @@
       if (!labelValues) return;
       var cx = x + bw / 2;
       if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
-      if (losses) parts.push(valueText(cx, mid + down + 12, losses, '600'));
+      if (losses) parts.push(valueText(cx, mid + down + 14, losses, '700'));
     }
-    var legendFont = 'font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif"';
-    var currentWidth = legend.current.length * 6.4;
-    var priorWidth = legend.prior.length * 6.4;
-    var legendRight = w - 8;
-    parts.push('<text x="' + legendRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.current) + '</text>');
-    parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + TEAL + '"/>');
-    var priorRight = legendRight - currentWidth - 26;
-    parts.push('<text x="' + priorRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.prior) + '</text>');
-    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + MUTED + '"/>');
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
       bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS);
       var currentX = slot + bw + gap;
       bars(currentX, bucket.joins || 0, bucket.losses || 0, TEAL, CLAY);
-      var labelSize = n > 16 ? 9 : 12;
+      var labelSize = font;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
       }
@@ -320,7 +285,7 @@ function pairSvg(current, prior, kind, legend) {
       }
       var showLabel = n <= 16 || index % 2 === 0 || index === n - 1;
       if (showLabel) {
-        parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 3) + '" text-anchor="middle" font-size="' + (n > 20 ? 9 : 12) + '" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
+        parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 3) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
       }
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
@@ -587,6 +552,64 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
+  function visitSplit(view, w, h) {
+    var pie = view.pie || { members: 0, guests: 0 };
+    var members = pie.members || 0;
+    var guests = pie.guests || 0;
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var missed = showMissed ? view.noShows.noShows : 0;
+    var total = members + guests + missed;
+    function share(count) { return total ? Math.round((count / total) * 100) : 0; }
+    var memberPct = share(members);
+    var guestPct = share(guests);
+    var missedPct = showMissed ? Math.max(0, 100 - memberPct - guestPct) : 0;
+    if (!showMissed && total) guestPct = Math.max(0, 100 - memberPct);
+    w = w || 420;
+    h = h || 160;
+    var barH = 56;
+    var y = Math.round((h - barH) / 2);
+    var rows = [
+      { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%', where: 'in' }
+    ];
+    rows.push({ audience: 'Guest', count: guests, pct: guestPct, fill: '#7D949C', ink: '#243033', text: 'Guests ' + guests + ' \u00b7 ' + guestPct + '%', where: 'in' });
+    if (showMissed) {
+      rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%', where: 'above' });
+    }
+    var parts = [];
+    var x = 0;
+    rows.forEach(function (row) {
+      var width = total ? (row.count / total) * w : w / rows.length;
+      if (width <= 0) return;
+      var need = row.text.length * 6.15;
+      var inside = row.where === 'in' && width >= need;
+      var click = row.audience ? ' data-audience="' + row.audience + '" style="cursor:pointer"' : '';
+      var on = row.audience && view.audience === row.audience;
+      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
+        (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
+      var tx = x + width / 2;
+      var ty = y + barH / 2 + 4;
+      var fill = row.ink;
+      var anchor = 'middle';
+      if (!inside) {
+        fill = '#243033';
+        if (row.where === 'above') {
+          ty = y - 8;
+          tx = Math.min(w - 4, x + width);
+          anchor = 'end';
+        } else {
+          ty = y + barH + 16;
+          var half = need / 2;
+          if (tx < half) { tx = 4; anchor = 'start'; }
+          else if (tx > w - half) { tx = w - 4; anchor = 'end'; }
+        }
+      }
+      parts.push('<text x="' + tx.toFixed(1) + '" y="' + ty + '" text-anchor="' + anchor + '" font-size="12" font-weight="700" fill="' + fill + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(row.text) + '</text></g>');
+      x += width;
+    });
+    var label = rows.map(function (row) { return row.text; }).join('. ');
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(label) + '">' + parts.join('') + '</svg>';
+  }
+
   function visitDonut(view) {
     var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
     var members = pie.members || 0;
@@ -620,10 +643,10 @@ function stepControl(step, enabled, compact, attrs) {
     return index % 2 === 0 || index === count - 1;
   }
 
-  function solidLineSvg(values, labels, kind, color, compact) {
+  function solidLineSvg(values, labels, kind, color, compact, w, h) {
     var n = values.length || 1;
-    var w = n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420;
-    var h = n > 6 ? (compact ? 230 : 260) : 180;
+    w = w || (n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420);
+    h = h || (n > 6 ? (compact ? 180 : 200) : 150);
     var padX = 22;
     var padTop = 36;
     var yZero = h - 26;
@@ -648,7 +671,7 @@ function stepControl(step, enabled, compact, attrs) {
       parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"/>');
       var crowded = n > 6;
       if (!crowded || index === lastIndex || index === maxIndex) {
-        parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 10).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
+        parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
       }
       if (axisLabelOn(index, n, compact)) {
         parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
@@ -657,11 +680,11 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
-  function multiLineSvg(groups, key, kind, compact) {
+  function multiLineSvg(groups, key, kind, compact, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
-    var w = Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
-    var h = n > 6 ? (compact ? 280 : 320) : 230;
+    w = w || Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
+    h = h || (n > 6 ? (compact ? 200 : 220) : 180);
     var padX = 28;
     var yZero = h - 28;
     var plotTop = 36;
@@ -712,7 +735,7 @@ function stepControl(step, enabled, compact, attrs) {
         var crowded = n > 6 || sample.length > 1;
         if (!crowded || index === lastIndex || index === maxIndex) {
           var dx = (seriesIndex - (sample.length - 1) / 2) * 16;
-          parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y - 12).toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="700" fill="' + seriesBar.color + '" font-family="Montserrat, Raleway, sans-serif">' + (bar[key] || 0) + '</text>');
+          parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + seriesBar.color + '" font-family="Montserrat, Raleway, sans-serif">' + (bar[key] || 0) + '</text>');
         }
       });
       flush();
@@ -724,13 +747,14 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ', one line per fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function groupedGainSvg(groups, compact) {
+  function groupedGainSvg(groups, compact, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     var seriesCount = Math.max(sample.length, 1);
-    var w = Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
-    var h = compact ? 300 : 340;
-    var mid = Math.round(h * 0.5);
+    w = w || Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
+    h = h || (compact ? 280 : 230);
+    var labelSize = 12;
+    var mid = Math.round(h * 0.52);
     var maxUp = 1;
     var maxDown = 1;
     groups.forEach(function (group) {
@@ -740,7 +764,7 @@ function stepControl(step, enabled, compact, attrs) {
         maxDown = Math.max(maxDown, bar.losses || 0);
       });
     });
-    var sc = Math.min((mid - 40) / maxUp, (h - mid - 32) / maxDown);
+    var sc = Math.min((mid - (compact ? 36 : 28)) / maxUp, (h - mid - (compact ? 44 : 32)) / maxDown);
     var slot = (w - 20) / n;
     var gap = 3;
     var bw = Math.max(8, Math.min(16, (slot - 12 - gap * (seriesCount - 1)) / seriesCount));
@@ -756,39 +780,209 @@ function stepControl(step, enabled, compact, attrs) {
         var tip = escapeHtml(bar.label + ' ' + group.label + ' gained ' + (bar.joins || 0) + ', lost ' + (bar.losses || 0));
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"><title>' + tip + '</title></rect>');
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '" opacity="0.4"><title>' + tip + '</title></rect>');
+        if (bar.joins) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 4).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.joins + '</text>');
+        if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + labelSize).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       });
-      if (axisLabelOn(index, n, compact)) {
-        parts.push('<text x="' + (10 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
+      if (axisLabelOn(index, n, false)) {
+        parts.push('<text x="' + (10 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="' + labelSize + '" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
       }
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains above the line and losses below, by month">' + parts.join('') + '</svg>';
   }
 
-  function chartFor(view, kind) {
+  function eventTypeBars(view, w, h) {
+    var counts = view.eventCounts || {};
+    var selected = view.eventTypes || [];
+    var names = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
+    var rows = names.map(function (name) {
+      var value = counts[name] || 0;
+      if (selected.length && selected.indexOf(name) === -1) value = 0;
+      return { name: name, value: value };
+    });
+    rows.sort(function (a, b) {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+    w = w || 420;
+    h = h || 150;
+    var max = 1;
+    rows.forEach(function (row) { if (row.value > max) max = row.value; });
+    var labelW = 112;
+    var countW = 32;
+    var gap = 12;
+    var barH = Math.max(16, Math.min(28, Math.floor((h - gap * (rows.length - 1)) / rows.length) - 4));
+    var totalH = rows.length * barH + (rows.length - 1) * gap;
+    var y0 = Math.max(4, Math.round((h - totalH) / 2));
+    var plotW = Math.max(24, w - labelW - countW - 10);
+    var parts = [];
+    rows.forEach(function (row, index) {
+      var y = y0 + index * (barH + gap);
+      var bw = max ? (row.value / max) * plotW : 0;
+      var cy = y + barH / 2 + 4;
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
+      if (bw > 0) {
+        parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + bw.toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+      }
+      parts.push('<text x="' + (labelW + bw + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Events held by event type">' + parts.join('') + '</svg>';
+  }
+
+  function chartFor(view, kind, w, h) {
     var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
     var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
     if (view.group === 'month' || view.group === 'quarter') {
-      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile);
+      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, w, h);
       var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
-      return solidLineSvg(values, labels, title, color, view.mobile);
+      return solidLineSvg(values, labels, title, color, view.mobile, w, h);
     }
     if (view.group === 'year' && view.yearBars) {
       return yearCountSvg(view.yearBars.map(function (bar) {
         return { label: bar.label, value: bar[key], color: bar.color };
-      }), title);
+      }), title, w, h);
     }
     if (view.groups) return groupedSvg(view.groups, key, title);
     var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
-    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile);
+    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h);
   }
 
-  function gainsChart(view) {
-    if (view.group === 'year') return gainsSvg(view.gains, '', !view.mobile, view.gainLegend);
-    if (view.groups) return groupedGainSvg(view.groups, view.mobile);
-    return gainsSvg(view.gains, '', !view.mobile && (view.gains || []).length <= 16, view.gainLegend);
+  function membershipCombo(view, w, h) {
+    var series = (view.gains || []).map(function (bucket) {
+      return {
+        label: bucket.label || '',
+        joins: bucket.joins || 0,
+        losses: bucket.losses || 0,
+        active: bucket.active || 0
+      };
+    });
+    if (series.length && view.members && view.members.value != null) series[series.length - 1].active = view.members.value;
+    if (!series.length) return emptyChart('is-gains');
+    var n = series.length;
+    w = w || 640;
+    h = h || 240;
+    var padL = 12;
+    var padR = 16;
+    var padTop = 18;
+    var padBot = 22;
+    var base = h - padBot;
+    var plotH = Math.max(40, base - padTop);
+    var maxBar = 1;
+    var minAct = series[0].active;
+    var maxAct = series[0].active;
+    series.forEach(function (bucket) {
+      maxBar = Math.max(maxBar, bucket.joins, bucket.losses);
+      if (bucket.active < minAct) minAct = bucket.active;
+      if (bucket.active > maxAct) maxAct = bucket.active;
+    });
+    var barTop = padTop + plotH * 0.5;
+    var barScale = (base - barTop) / maxBar;
+    var actPad = Math.max(1, Math.round((maxAct - minAct) * 0.35) || 1);
+    var actMin = minAct - actPad;
+    var actMax = maxAct + actPad;
+    if (actMax <= actMin) actMax = actMin + 1;
+    var lineTop = padTop + 2;
+    var lineBot = barTop - 16;
+    var slot = (w - padL - padR) / n;
+    var gap = 4;
+    var bw = Math.max(8, Math.min(22, (slot * 0.62 - gap) / 2));
+    var parts = [
+      '<line x1="' + padL + '" y1="' + base + '" x2="' + (w - padR) + '" y2="' + base + '" stroke="#9aa6a9"/>',
+      '<line x1="' + (w - 8) + '" y1="' + lineTop + '" x2="' + (w - 8) + '" y2="' + lineBot + '" stroke="#c5d0d4"/>'
+    ];
+    function cxOf(index) { return padL + index * slot + slot / 2; }
+    function barH(value) { return Math.max(value ? 2 : 0, value * barScale); }
+    function lineY(value) { return lineBot - ((value - actMin) / (actMax - actMin)) * (lineBot - lineTop); }
+    var points = [];
+    series.forEach(function (bucket, index) {
+      var cx = cxOf(index);
+      var xNew = cx - gap / 2 - bw;
+      var xCan = cx + gap / 2;
+      var up = barH(bucket.joins);
+      var down = barH(bucket.losses);
+      parts.push('<rect x="' + xNew.toFixed(1) + '" y="' + (base - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + up.toFixed(1) + '" fill="' + TEAL + '"><title>New ' + bucket.joins + '</title></rect>');
+      parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + (base - down).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"><title>Cancelled ' + bucket.losses + '</title></rect>');
+      parts.push('<text x="' + (xNew + bw / 2).toFixed(1) + '" y="' + (base - up - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
+      parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base - down - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
+      var y = lineY(bucket.active);
+      points.push(cx.toFixed(1) + ',' + y.toFixed(1));
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
+    });
+    parts.push('<polyline points="' + points.join(' ') + '" fill="none" stroke="#243033" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>');
+    series.forEach(function (bucket, index) {
+      var cx = cxOf(index);
+      var y = lineY(bucket.active);
+      parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="#243033"><title>Active members ' + bucket.active + '</title></circle>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + bucket.active + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="New and cancelled members by period, with active members ending at ' + series[series.length - 1].active + '">' + parts.join('') + '</svg>';
+  }
+
+  function businessTypeRows(view) {
+    var otherName = 'Other / not listed';
+    var other = null;
+    var rows = [];
+    (view.businessTypes || []).forEach(function (row) {
+      var name = row.label || row.category || '';
+      var value = row.count || 0;
+      if (!name || !value) return;
+      if (name === otherName) other = { name: name, value: value };
+      else rows.push({ name: name, value: value });
+    });
+    rows.sort(function (a, b) {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+    if (other) rows.push(other);
+    return rows;
+  }
+
+  function businessTypeBars(view, w, slotH) {
+    var rows = businessTypeRows(view);
+    if (!rows.length) return '';
+    var barH = 16;
+    var gap = 8;
+    var pitch = barH + gap;
+    if (slotH && slotH >= pitch) {
+      var fit = Math.max(1, Math.floor((slotH - 4) / pitch));
+      var other = rows[rows.length - 1].name === 'Other / not listed' ? rows[rows.length - 1] : null;
+      var named = other ? rows.slice(0, -1) : rows;
+      if (other && fit >= 2) rows = named.slice(0, fit - 1).concat([other]);
+      else rows = named.slice(0, fit);
+    }
+    w = w || 320;
+    var longest = 0;
+    rows.forEach(function (row) { if (row.name.length > longest) longest = row.name.length; });
+    var labelW = Math.min(Math.round(longest * 6.35) + 10, Math.max(120, w - 88));
+    var countW = 36;
+    var h = 8 + rows.length * pitch;
+    var max = 1;
+    rows.forEach(function (row) { if (row.value > max) max = row.value; });
+    var plotW = Math.max(24, w - labelW - countW - 8);
+    var parts = [];
+    rows.forEach(function (row, index) {
+      var y = 6 + index * (barH + gap);
+      var bw = max ? (row.value / max) * plotW : 0;
+      var cy = y + barH / 2 + 4;
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
+      if (bw > 0) parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + Math.max(bw, 2).toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+      parts.push('<text x="' + (labelW + Math.max(bw, 2) + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Members by business type">' + parts.join('') + '</svg>';
+  }
+
+  function membershipComboKey() {
+    return '<div class="chart-key"><span class="key-item"><i style="background:' + TEAL + '"></i>New</span>' +
+      '<span class="key-item"><i style="background:' + CLAY + '"></i>Cancelled</span>' +
+      '<span class="key-item"><i class="key-line"></i>Active members</span></div>';
+  }
+
+  function gainsChart(view, w, h) {
+    if (view.group === 'year') return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
+    if (view.groups) return groupedGainSvg(view.groups, !!view.mobile, w, h);
+    return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
   }
 
   function ytdLine(view) {
@@ -818,23 +1012,32 @@ function stepControl(step, enabled, compact, attrs) {
     }).join('') + '</div>';
   }
 
+  function gainPairKey(view) {
+    var legend = view.gainLegend || { current: 'This FY', prior: 'Last FY' };
+    return '<div class="chart-key"><span class="key-item"><i style="background:' + TEAL + '"></i>' + escapeHtml(legend.current) + '</span>' +
+      '<span class="key-item"><i style="background:' + MUTED + '"></i>' + escapeHtml(legend.prior) + '</span></div>';
+  }
+
   function gainsCard(view) {
+    var legend = view.group === 'year' ? chartKey(legendItems(view)) : gainPairKey(view);
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + gainsChart(view) + '</div>' + chartKey(legendItems(view), true),
+      '<div class="chart-slot" data-chart="gains">' + gainsChart(view) + '</div>' + legend,
       ' card-gains', 'changes', 'View the member list');
   }
 
   function overview(view) {
     var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="kpi-row">' +
-      card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(null) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>', ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>', ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>', ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', '', '') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', '', '') +
-      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
+      card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -844,10 +1047,12 @@ function stepControl(step, enabled, compact, attrs) {
 
   function membership(view) {
     return '<div class="detail-grid">' +
-      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
-      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + periodTag(null) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + periodTag(null) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
-      gainsCard(view) + '</div>';
+      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members), ' card-members kpi-members', 'members', 'View the member list') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone), ' kpi-net', 'changes', 'View membership change') +
+      card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
+      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') : '') +
+      '</div>';
   }
 
   function noShowCard(view) {
@@ -857,8 +1062,8 @@ function stepControl(step, enabled, compact, attrs) {
     }
     var tag = '<p class="period-tag">of ' + metric.signups + ' sign-ups · ' + metric.pct + '%</p>';
     return card('No-shows', 'No-shows',
-      '<p class="kpi-num">' + metric.noShows + '</p>' + tag + (metric.parts ? priors(metric) : '') +
-      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
+      '<p class="kpi-num">' + metric.noShows + '</p>' + tag +
+      '<div class="chart-slot" data-chart="noshows">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
 
@@ -874,34 +1079,35 @@ function stepControl(step, enabled, compact, attrs) {
     return 'Joined ' + match[1] + ' or earlier';
   }
 
-  function lapseChart(bands) {
+  function lapseChart(bands, w, h) {
     var rows = bands && bands.length ? bands : [];
-    var w = 420;
-    var h = 150;
+    w = w || 420;
+    h = h || 150;
     var max = 1;
     rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
     var n = rows.length || 1;
-    var gap = 28;
-    var bw = Math.max(22, Math.min(54, (w - 24 - gap * (n - 1)) / n));
-    var total = n * bw + (n - 1) * gap;
-    var x0 = (w - total) / 2;
-    var base = 124;
-    var plot = 78;
+    var col = w / n;
+    var bw = Math.max(18, Math.min(48, col * 0.42));
+    var base = h - 20;
+    var plot = Math.max(8, base - 22);
     var parts = ['<line x1="8" y1="' + base + '" x2="' + (w - 8) + '" y2="' + base + '" stroke="#d5dee2"/>'];
     rows.forEach(function (row, index) {
       var lapsed = row.lapsed || 0;
       var members = row.members || 0;
       var pct = members ? Math.round((lapsed / members) * 100) : 0;
+      var longText = lapsed + ' of ' + members + ' \u00b7 ' + pct + '%';
+      var shortText = lapsed + '/' + members + ' \u00b7 ' + pct + '%';
+      var label = longText.length * 7.1 <= col - 8 ? longText : shortText;
       var height = (lapsed / max) * plot;
       var barH = Math.max(height, lapsed ? 0 : 3);
-      var x = x0 + index * (bw + gap);
+      var cx = (index + 0.5) * col;
+      var x = cx - bw / 2;
       var y = base - barH;
       var color = lapsed ? '#D01F25' : '#7D949C';
-      var cx = (x + bw / 2).toFixed(1);
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ' ' + pct + '%</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + escapeHtml(longText) + '</title></rect>');
       var labelY = Math.min(y - 6, base - 18);
-      parts.push('<text x="' + cx + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '<tspan font-size="10" font-weight="650" fill="#3d4c50"> ' + pct + '%</tspan></text>');
-      parts.push('<text x="' + cx + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(label) + '</text>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
   }
@@ -928,17 +1134,19 @@ function stepControl(step, enabled, compact, attrs) {
       '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
       '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
-      '<div class="chart-slot">' + lapseChart(risk.lapseByBand) + '</div>',
+      '<div class="chart-slot" data-chart="lapse">' + lapseChart(risk.lapseByBand) + '</div>',
       ' card-renewal kpi-renewal', 'members', 'View the member list', tip);
   }
 
   function eventsPage(view) {
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="detail-grid">' +
-      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
-      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -985,5 +1193,45 @@ function stepControl(step, enabled, compact, attrs) {
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }
 
-  root.ABADashboardView = { render: render, escapeHtml: escapeHtml };
+  var chartObserver = null;
+
+  function fitCharts(root, view) {
+    if (!root || !view) return;
+    if (chartObserver) chartObserver.disconnect();
+    var hosts = root.querySelectorAll('[data-chart]');
+    function draw(host) {
+      var w = Math.floor(host.clientWidth);
+      var h = Math.floor(host.clientHeight);
+      var kind = host.getAttribute('data-chart');
+      if (kind === 'types') {
+        if (w < 40 || h < 24) return;
+        if (host._chartW === w && host._chartH === h) return;
+        host._chartW = w;
+        host._chartH = h;
+        host.innerHTML = businessTypeBars(view, w, h);
+        return;
+      }
+      if (w < 40 || h < 40) return;
+      if (host._chartW === w && host._chartH === h) return;
+      host._chartW = w;
+      host._chartH = h;
+      var svg = '';
+      if (kind === 'gains') svg = gainsChart(view, w, h);
+      else if (kind === 'combo') svg = membershipCombo(view, w, h);
+      else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
+      else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
+      else if (kind === 'split') svg = visitSplit(view, w, h);
+      else svg = chartFor(view, kind, w, h);
+      host.innerHTML = svg;
+    }
+    Array.prototype.forEach.call(hosts, draw);
+    if (typeof ResizeObserver === 'function') {
+      chartObserver = new ResizeObserver(function (entries) {
+        entries.forEach(function (entry) { draw(entry.target); });
+      });
+      Array.prototype.forEach.call(hosts, function (host) { chartObserver.observe(host); });
+    }
+  }
+
+  root.ABADashboardView = { render: render, escapeHtml: escapeHtml, fitCharts: fitCharts };
 })(typeof window !== 'undefined' ? window : globalThis);

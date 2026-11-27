@@ -157,7 +157,12 @@
       ui.drill.pack = pack;
       view.drill = ui.drill;
     }
-    document.getElementById('dash').innerHTML = viewApi.render(view);
+    var dashRoot = document.getElementById('dash');
+    var pageName = view.page || 'overview';
+    dashRoot.classList.remove('page-overview', 'page-membership', 'page-events');
+    dashRoot.classList.add('page-fit', 'page-' + pageName);
+    dashRoot.innerHTML = viewApi.render(view);
+    if (viewApi.fitCharts) viewApi.fitCharts(dashRoot, view);
     if (restore) {
       var node = null;
       if (restore.kind === 'find') node = visibleNode('[data-find="' + restore.menu + '"]');

@@ -68,12 +68,12 @@ test('three fiscal years sit side by side and event filters do not change member
   assert.match(html, /Hospitality Sign-Up/);
   assert.match(html, /Documents/);
   assert.match(html, /View membership details/);
-  assert.match(html, /Member visits \d+ · \d+%/);
+  assert.match(html, /Members \d+ · \d+%/);
   assert.equal(html.includes('patternUnits'), false);
   const monthHtml = paint(dash.compute(data, { rangeKind: 'last3', group: 'month' }));
   assert.match(monthHtml, /<polyline /);
   assert.match(monthHtml, /one line per fiscal year/);
-  assert.match(html, /Guest visits/);
+  assert.match(html, /Guests \d+ · \d+%/);
   assert.match(html, /Gained/);
   assert.match(html, /Lost/);
   assert.equal(html.includes('>Open'), false);

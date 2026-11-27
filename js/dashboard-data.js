@@ -171,7 +171,21 @@
           { band: '3\u20135', members: 38, lapsed: 5 },
           { band: '6+', members: 23, lapsed: 0 }
         ]
-      }
+      },
+      businessTypes: [
+        { label: 'Restaurants', count: 62 },
+        { label: 'Contractors', count: 54 },
+        { label: 'Real Estate Services', count: 48 },
+        { label: 'Medical, Dental & Nursing Care', count: 44 },
+        { label: 'Financial & Investment Services', count: 38 },
+        { label: 'Insurance', count: 32 },
+        { label: 'Marketing', count: 28 },
+        { label: 'Fitness', count: 24 },
+        { label: 'Legal Services', count: 21 },
+        { label: 'Education', count: 18 },
+        { label: 'Automotive', count: 16 },
+        { label: 'Other / not listed', count: 27 }
+      ]
     };
   }
 
@@ -248,6 +262,9 @@
       if (!audience || (!joins && !losses)) return;
       changes.push({ date: row.date, audience: audience, eventType: type, joins: joins, losses: losses });
     });
+    var businessTypes = (source.businessTypes || []).map(function (row) {
+      return { label: String(row.category || row.label || '').trim(), count: whole(row.count) };
+    }).filter(function (row) { return row.label && row.count; });
     return {
       example: source.example === true,
       asOf: isISO(source.asOf) ? source.asOf : '',
@@ -256,7 +273,8 @@
       attendance: attendance,
       signups: signups,
       renewalRisk: renewalRisk,
-      changes: changes
+      changes: changes,
+      businessTypes: businessTypes
     };
   }
 
