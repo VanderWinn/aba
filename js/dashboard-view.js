@@ -1186,7 +1186,10 @@ function stepControl(step, enabled, compact, attrs) {
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
     return '<div class="drill-back" data-drill-close></div><section class="drill" role="dialog" aria-label="' + escapeHtml(pack.title) + '">' +
       '<header class="drill-bar"><button type="button" class="drill-back-btn" data-drill-close>Back</button><h2>' + escapeHtml(pack.title) + '</h2>' + badge + '</header>' +
-      '<div class="drill-tools"><input data-drill-search value="' + escapeHtml(drill.q || '') + '" placeholder="Search these records" aria-label="Search these records"><p class="record-count">' + count + ' records</p></div>' +
+      '<div class="drill-tools"><input data-drill-search value="' + escapeHtml(drill.q || '') + '" placeholder="Search these records" aria-label="Search these records">' +
+      '<button type="button" class="drill-export" data-export="csv">CSV</button>' +
+      '<button type="button" class="drill-export" data-export="xlsx">Excel</button>' +
+      '<p class="record-count">' + count + ' records</p></div>' +
       '<div class="drill-scroll"><table class="drill-table"><thead><tr>' + heads + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 

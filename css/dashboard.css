@@ -828,7 +828,9 @@ select:focus-visible {
 .drill-bar h2 { margin: 0; font-size: var(--detail-title-size); font-weight: 700; font-family: Montserrat, Raleway, sans-serif; color: var(--deep); }
 .drill-tools, .drill-table, .record-count, .drill-tools input, .drill-back-btn { font-size: var(--detail-body-size); }
 
-.drill-back-btn { border: 1px solid #c5cfd2; background: #fff; border-radius: 4px; padding: 6px 10px; font-weight: 700; }
+.drill-back-btn, .drill-export { border: 1px solid #c5cfd2; background: #fff; border-radius: 4px; padding: 6px 10px; font-weight: 700; }
+.drill-export { padding: 4px 8px; white-space: nowrap; }
+.drill-export:focus-visible, .drill-back-btn:focus-visible { outline: 2px solid #243033; outline-offset: 2px; }
 
 .drill-tools input { flex: 1; width: auto; }
 

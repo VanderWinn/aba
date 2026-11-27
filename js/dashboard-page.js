@@ -262,6 +262,11 @@
       update({ type: 'audience', audience: state.audience });
       return;
     }
+    var exp = event.target.closest('[data-export]');
+    if (exp && ui.drill) {
+      exportShown(exp.getAttribute('data-export'));
+      return;
+    }
     var drillOpen = event.target.closest('[data-drill]');
     if (drillOpen && !info) {
       ui.drill = { kind: drillOpen.getAttribute('data-drill'), sort: 'date', dir: 'asc', q: '' };
@@ -406,6 +411,67 @@
       ui.drill.q = target.value;
       paint();
     }
+  }
+
+  function exportName(title, ext) {
+    var slug = String(title || 'records').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'records';
+    var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Detroit', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return 'aba-' + slug + '-' + day + '.' + ext;
+  }
+
+  function csvField(value) {
+    var text = value == null ? '' : String(value);
+    if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function downloadBlob(name, blob) {
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportShown(kind) {
+    if (!ui.drill || !ui.drill.pack) return;
+    var pack = ui.drill.pack;
+    var columns = pack.columns || [];
+    var rows = pack.shown || [];
+    var headers = columns.map(function (column) { return column.label; });
+    var data = rows.map(function (row) {
+      return columns.map(function (column) {
+        var value = row[column.key];
+        return value == null ? '' : value;
+      });
+    });
+    var name = exportName(pack.title, kind === 'csv' ? 'csv' : 'xlsx');
+    if (kind === 'csv') {
+      var lines = [headers].concat(data).map(function (row) { return row.map(csvField).join(','); });
+      downloadBlob(name, new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      return;
+    }
+    if (!window.XLSX) return;
+    var sheet = window.XLSX.utils.aoa_to_sheet([headers].concat(data));
+    sheet['!cols'] = headers.map(function (header, index) {
+      var width = String(header).length;
+      data.forEach(function (row) {
+        var size = String(row[index] == null ? '' : row[index]).length;
+        if (size > width) width = size;
+      });
+      return { wch: Math.min(48, Math.max(10, width + 2)) };
+    });
+    var column;
+    for (column = 0; column < headers.length; column++) {
+      var cell = sheet[window.XLSX.utils.encode_cell({ r: 0, c: column })];
+      if (cell) cell.s = { font: { bold: true } };
+    }
+    var book = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(book, sheet, 'Records');
+    window.XLSX.writeFile(book, name);
   }
 
   function onKey(event) {
