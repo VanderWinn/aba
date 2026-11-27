@@ -37,6 +37,8 @@
     'New Members': 'Business members who joined during the date range. A partial year counts only through today and is compared with the same dates one year earlier.',
     'Net Gain': 'Business members who joined minus business members who left during the date range. A partial year is year to date and is compared with the same dates last year, not the full prior year.',
     'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
+    'Membership combo': 'Teal bars are new members and red bars are cancelled members for each period in Group by. The line is the active member count at the end of that period, on its own scale at the right. The last point matches Active member businesses.',
+    'Members by business type': 'Active member businesses in each directory category, largest first. A business listed in more than one category is counted in each. Other / not listed is businesses with no category.',
     'Events Held': 'How many events took place in the date range. Event type, company, and attendee change this number. The counts beside the event types are events in this same date range.',
     'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, and attendee change this number.',
     'No-shows': 'People who signed up and were marked no-show. The count is no-shows of sign-ups. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. Company and attendee filters apply when each sign-up has a status. Event totals without a status cannot be split by company.',
@@ -1061,6 +1063,7 @@
         label: bar.label,
         joins: bar.joins,
         losses: bar.losses,
+        active: bar.members,
         priorJoins: 0,
         priorLosses: 0,
         color: bar.color,
@@ -1075,6 +1078,7 @@
         label: bucket.label,
         joins: flow.joins,
         losses: flow.losses,
+        active: memberStock(bucket.start, bucket.end),
         priorJoins: prior.joins,
         priorLosses: prior.losses
       };
@@ -1296,6 +1300,7 @@
       net: netMetric,
       gains: gainSeries,
       gainLegend: gainLegend,
+      businessTypes: data.businessTypes || [],
       events: eventsMetric,
       eventSeries: eventSeries,
       eventLastYear: eventLastYear,

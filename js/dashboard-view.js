@@ -872,6 +872,115 @@ function stepControl(step, enabled, compact, attrs) {
     return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h);
   }
 
+  function membershipCombo(view, w, h) {
+    var series = (view.gains || []).map(function (bucket) {
+      return {
+        label: bucket.label || '',
+        joins: bucket.joins || 0,
+        losses: bucket.losses || 0,
+        active: bucket.active || 0
+      };
+    });
+    if (series.length && view.members && view.members.value != null) series[series.length - 1].active = view.members.value;
+    if (!series.length) return emptyChart('is-gains');
+    var n = series.length;
+    w = w || 640;
+    h = h || 240;
+    var padL = 12;
+    var padR = 16;
+    var padTop = 18;
+    var padBot = 22;
+    var base = h - padBot;
+    var plotH = Math.max(40, base - padTop);
+    var maxBar = 1;
+    var minAct = series[0].active;
+    var maxAct = series[0].active;
+    series.forEach(function (bucket) {
+      maxBar = Math.max(maxBar, bucket.joins, bucket.losses);
+      if (bucket.active < minAct) minAct = bucket.active;
+      if (bucket.active > maxAct) maxAct = bucket.active;
+    });
+    var barTop = padTop + plotH * 0.5;
+    var barScale = (base - barTop) / maxBar;
+    var actPad = Math.max(1, Math.round((maxAct - minAct) * 0.35) || 1);
+    var actMin = minAct - actPad;
+    var actMax = maxAct + actPad;
+    if (actMax <= actMin) actMax = actMin + 1;
+    var lineTop = padTop + 2;
+    var lineBot = barTop - 16;
+    var slot = (w - padL - padR) / n;
+    var gap = 4;
+    var bw = Math.max(8, Math.min(22, (slot * 0.62 - gap) / 2));
+    var parts = [
+      '<line x1="' + padL + '" y1="' + base + '" x2="' + (w - padR) + '" y2="' + base + '" stroke="#9aa6a9"/>',
+      '<line x1="' + (w - 8) + '" y1="' + lineTop + '" x2="' + (w - 8) + '" y2="' + lineBot + '" stroke="#c5d0d4"/>'
+    ];
+    function cxOf(index) { return padL + index * slot + slot / 2; }
+    function barH(value) { return Math.max(value ? 2 : 0, value * barScale); }
+    function lineY(value) { return lineBot - ((value - actMin) / (actMax - actMin)) * (lineBot - lineTop); }
+    var points = [];
+    series.forEach(function (bucket, index) {
+      var cx = cxOf(index);
+      var xNew = cx - gap / 2 - bw;
+      var xCan = cx + gap / 2;
+      var up = barH(bucket.joins);
+      var down = barH(bucket.losses);
+      parts.push('<rect x="' + xNew.toFixed(1) + '" y="' + (base - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + up.toFixed(1) + '" fill="' + TEAL + '"><title>New ' + bucket.joins + '</title></rect>');
+      parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + (base - down).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"><title>Cancelled ' + bucket.losses + '</title></rect>');
+      parts.push('<text x="' + (xNew + bw / 2).toFixed(1) + '" y="' + (base - up - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
+      parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base - down - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
+      var y = lineY(bucket.active);
+      points.push(cx.toFixed(1) + ',' + y.toFixed(1));
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
+    });
+    parts.push('<polyline points="' + points.join(' ') + '" fill="none" stroke="#243033" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>');
+    series.forEach(function (bucket, index) {
+      var cx = cxOf(index);
+      var y = lineY(bucket.active);
+      parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="#243033"><title>Active members ' + bucket.active + '</title></circle>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + bucket.active + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="New and cancelled members by period, with active members ending at ' + series[series.length - 1].active + '">' + parts.join('') + '</svg>';
+  }
+
+  function businessTypeBars(view, w) {
+    var rows = (view.businessTypes || []).map(function (row) {
+      return { name: row.label, value: row.count || 0 };
+    }).filter(function (row) { return row.name; });
+    rows.sort(function (a, b) {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+    if (!rows.length) return '<p class="period-tag">Categories are not in this feed yet.</p>';
+    w = w || 320;
+    var longest = 0;
+    rows.forEach(function (row) { if (row.name.length > longest) longest = row.name.length; });
+    var labelW = Math.min(Math.round(longest * 6.35) + 10, Math.max(120, w - 88));
+    var countW = 36;
+    var gap = 8;
+    var barH = 16;
+    var h = 8 + rows.length * (barH + gap);
+    var max = 1;
+    rows.forEach(function (row) { if (row.value > max) max = row.value; });
+    var plotW = Math.max(24, w - labelW - countW - 8);
+    var parts = [];
+    rows.forEach(function (row, index) {
+      var y = 6 + index * (barH + gap);
+      var bw = max ? (row.value / max) * plotW : 0;
+      var cy = y + barH / 2 + 4;
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
+      if (bw > 0) parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + Math.max(bw, 2).toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+      parts.push('<text x="' + (labelW + Math.max(bw, 2) + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Members by business type">' + parts.join('') + '</svg>';
+  }
+
+  function membershipComboKey() {
+    return '<div class="chart-key"><span class="key-item"><i style="background:' + TEAL + '"></i>New</span>' +
+      '<span class="key-item"><i style="background:' + CLAY + '"></i>Cancelled</span>' +
+      '<span class="key-item"><i class="key-line"></i>Active members</span></div>';
+  }
+
   function gainsChart(view, w, h) {
     if (view.group === 'year') return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
     if (view.groups) return groupedGainSvg(view.groups, !!view.mobile, w, h);
@@ -943,7 +1052,9 @@ function stepControl(step, enabled, compact, attrs) {
       card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
       card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + periodTag(null) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
       card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + periodTag(null) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
-      gainsCard(view) + '</div>';
+      card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
+      card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') +
+      '</div>';
   }
 
   function noShowCard(view) {
@@ -1093,13 +1204,20 @@ function stepControl(step, enabled, compact, attrs) {
     function draw(host) {
       var w = Math.floor(host.clientWidth);
       var h = Math.floor(host.clientHeight);
+      var kind = host.getAttribute('data-chart');
+      if (kind === 'types') {
+        if (w < 40 || host._chartW === w) return;
+        host._chartW = w;
+        host.innerHTML = businessTypeBars(view, w);
+        return;
+      }
       if (w < 40 || h < 40) return;
       if (host._chartW === w && host._chartH === h) return;
       host._chartW = w;
       host._chartH = h;
-      var kind = host.getAttribute('data-chart');
       var svg = '';
       if (kind === 'gains') svg = gainsChart(view, w, h);
+      else if (kind === 'combo') svg = membershipCombo(view, w, h);
       else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
       else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
       else if (kind === 'split') svg = visitSplit(view, w, h);

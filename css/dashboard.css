@@ -1201,6 +1201,7 @@ select:focus-visible {
   border-radius: 2px;
   flex: none;
 }
+.chart-key i.key-line { width: 14px; height: 3px; border-radius: 2px; background: #243033; }
 .chart-key .key-gained { background: #3F768B; }
 .chart-key .key-lost { background: #3F768B; opacity: .4; }
 .detail-grid .card-events .chart-slot,
@@ -1301,17 +1302,19 @@ select:focus-visible {
     grid-template-rows: auto minmax(0, 1fr);
   }
   #dash.page-membership .detail-grid .card { height: auto; }
-  #dash.page-membership .detail-grid .card-gains {
-    grid-column: 1 / -1;
+  #dash.page-membership .detail-grid .card-gains,
+  #dash.page-membership .detail-grid .card-types {
     height: 100%;
     min-height: 0;
     overflow: hidden;
   }
+  #dash.page-membership .detail-grid .card-gains { grid-column: 1 / 3; }
+  #dash.page-membership .detail-grid .card-types { grid-column: 3; }
   #dash.page-membership .kpi-members .card,
-  #dash.page-membership .detail-grid > .card:not(.card-gains) {
+  #dash.page-membership .detail-grid > .card:not(.card-gains):not(.card-types) {
     padding: 8px 12px 6px;
   }
-  #dash.page-membership .detail-grid > .card:not(.card-gains) .bodycol { gap: 4px; }
+  #dash.page-membership .detail-grid > .card:not(.card-gains):not(.card-types) .bodycol { gap: 4px; }
   #dash.page-events .body { min-height: 0; }
   #dash.page-events .side { max-height: 100%; overflow: auto; }
   #dash.page-events .main { height: 100%; min-height: 0; }
@@ -1328,7 +1331,8 @@ select:focus-visible {
   #dash.page-events .card-renewal { grid-area: renewal; }
   #dash.page-events .card-pie { grid-area: donut; }
   #dash.page-events .detail-grid .card,
-  #dash.page-membership .card-gains {
+  #dash.page-membership .card-gains,
+  #dash.page-membership .card-types {
     min-height: 0;
     overflow: hidden;
     display: flex;
@@ -1336,11 +1340,13 @@ select:focus-visible {
   }
   #dash.page-events .detail-grid .card { height: 100%; }
   #dash.page-events .detail-grid .bodycol,
-  #dash.page-membership .card-gains .bodycol {
+  #dash.page-membership .card-gains .bodycol,
+  #dash.page-membership .card-types .bodycol {
     flex: 1 1 auto;
     min-height: 0;
     gap: 8px;
   }
+  #dash.page-membership .card-types .bodycol { overflow: auto; }
   #dash.page-events .detail-grid .chart-slot,
   #dash.page-events .detail-grid .visit-donut,
   #dash.page-membership .card-gains .chart-slot {
@@ -1355,6 +1361,7 @@ select:focus-visible {
     height: 100%;
     max-height: 100%;
   }
+  #dash.page-membership .card-types .chart { width: 100%; height: auto; max-height: none; }
   #dash.page-events .visit-donut { align-items: center; }
   #dash.page-events .donut { max-height: 70%; width: auto; height: auto; flex: 0 1 auto; }
 }
