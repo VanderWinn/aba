@@ -35,25 +35,6 @@
     return '0';
   }
 
-  function priors(metric) {
-    if (metric.parts && metric.parts.length) {
-      return '<div class="pr">' + metric.parts.map(function (part) {
-        return '<div><div class="pl">' + escapeHtml(part.label) + '</div><div class="pv">' + part.value +
-          (part.pct == null ? '' : ' <span class="share">' + part.pct + '%</span>') + '</div></div>';
-      }).join('') + '</div>';
-    }
-    var labels = metric.labels || ['Last month', 'Last quarter', 'Last year'];
-    var cells = [
-      [labels[0], metric.lastMonth],
-      [labels[1], metric.lastQuarter],
-      [labels[2], metric.lastYear]
-    ];
-    return '<div class="pr">' + cells.map(function (cell) {
-      return '<div><div class="pl">' + escapeHtml(cell[0]) + '</div><div class="pv">' +
-        cell[1] + '</div></div>';
-    }).join('') + '</div>';
-  }
-
   function headline(text, tone, sizeClass, drill, context) {
     return '<button type="button" class="big ' + sizeClass + ' tone-' + tone + '" data-drill="' + drill + '">' + text + '</button>' +
       (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
@@ -1028,10 +1009,10 @@ function stepControl(step, enabled, compact, attrs) {
     var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
     var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="kpi-row">' +
-      card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(null) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>', ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>', ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>', ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
@@ -1045,9 +1026,9 @@ function stepControl(step, enabled, compact, attrs) {
 
   function membership(view) {
     return '<div class="detail-grid">' +
-      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
-      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + periodTag(null) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + periodTag(null) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
+      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members), ' card-members kpi-members', 'members', 'View the member list') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone), ' kpi-net', 'changes', 'View membership change') +
       card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
       card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') +
       '</div>';
@@ -1060,7 +1041,7 @@ function stepControl(step, enabled, compact, attrs) {
     }
     var tag = '<p class="period-tag">of ' + metric.signups + ' sign-ups · ' + metric.pct + '%</p>';
     return card('No-shows', 'No-shows',
-      '<p class="kpi-num">' + metric.noShows + '</p>' + tag + (metric.parts ? priors(metric) : '') +
+      '<p class="kpi-num">' + metric.noShows + '</p>' + tag +
       '<div class="chart-slot" data-chart="noshows">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
@@ -1140,8 +1121,8 @@ function stepControl(step, enabled, compact, attrs) {
     var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
     var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="detail-grid">' +
-      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
       card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
