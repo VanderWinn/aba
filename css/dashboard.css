@@ -1222,6 +1222,75 @@ select:focus-visible {
 }
 .side .h { color: var(--soft); }
 
+@media (min-width: 801px) {
+  #dash.page-overview {
+    height: 100vh;
+    max-height: 100vh;
+  }
+  #dash.page-overview .docbar { min-height: 48px; padding: 0 16px; }
+  #dash.page-overview .mark { height: 32px; }
+  #dash.page-overview .mark img { height: 26px; }
+  #dash.page-overview .sig { min-height: 28px; padding: 0 16px; }
+  #dash.page-overview .shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 16px 8px;
+    gap: 12px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  #dash.page-overview .view-tabs { grid-column: 1; grid-row: 1; align-self: center; }
+  #dash.page-overview .view-tabs button { min-height: 32px; padding: 4px 10px; }
+  #dash.page-overview .controls {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px 16px;
+  }
+  #dash.page-overview .controls .lab { display: inline; margin: 0 8px 0 0; }
+  #dash.page-overview .context-line { grid-column: 1 / -1; grid-row: 2; white-space: nowrap; }
+  #dash.page-overview .body { grid-column: 1 / -1; grid-row: 3; min-height: 0; height: 100%; }
+  #dash.page-overview .main { height: 100%; min-height: 0; gap: 12px; }
+  #dash.page-overview .kpi-row { flex: 0 0 auto; }
+  #dash.page-overview .kpi-row .card,
+  #dash.page-overview .chart-grid .card { padding: 8px 12px 6px; }
+  #dash.page-overview .kpi-row .bodycol { gap: 4px; }
+  #dash.page-overview .card-foot { padding-top: 4px; }
+  #dash.page-overview .chart-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  #dash.page-overview .chart-grid .card { min-height: 0; overflow: hidden; }
+  #dash.page-overview .chart-grid .bodycol { flex: 1 1 auto; min-height: 0; gap: 8px; }
+  #dash.page-overview .chart-grid .chart-slot,
+  #dash.page-overview .chart-grid .visit-donut {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  #dash.page-overview .chart-grid .chart,
+  #dash.page-overview .chart-grid .pie {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+  }
+  #dash.page-overview .chart-grid .donut {
+    width: auto;
+    height: auto;
+    max-height: 72%;
+    max-width: 42%;
+    flex: 0 1 auto;
+  }
+  #dash.page-overview .chart-grid .donut-labels { flex: 1 1 auto; min-width: 0; }
+  #dash.page-overview .donut-label { white-space: nowrap; height: auto; }
+}
+
 @media (max-width: 1100px) {
   .kpi-row { grid-template-columns: 1fr 1fr; }
 }
