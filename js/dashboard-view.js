@@ -66,7 +66,7 @@
       (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
   }
 
-  function card(title, key, body, extra, drill, linkLabel) {
+  function card(title, key, body, extra, drill, linkLabel, tipExtra) {
     var link = '';
     if (linkLabel) {
       var jump = String(drill || '');
@@ -75,7 +75,7 @@
         : 'data-drill="' + escapeHtml(jump) + '"';
       link = '<div class="card-foot"><button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button></div>';
     }
-    var icon = key ? hint('', key, true) : '';
+    var icon = key ? hint('', key, true, tipExtra) : '';
     return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + escapeHtml(title) + icon +
       '</h2></div><div class="bodycol">' + body + '</div>' + link + '</section>';
   }
@@ -807,11 +807,13 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function chartKey(items, gainedLost) {
-    if (!items || !items.length) return '';
+    var list = items || [];
+    if (!gainedLost && list.length < 2) return '';
     var lead = gainedLost
       ? '<span class="key-item"><i class="key-gained"></i>Gained</span><span class="key-item"><i class="key-lost"></i>Lost</span>'
       : '';
-    return '<div class="chart-key">' + lead + items.map(function (item) {
+    var shown = gainedLost && list.length < 2 ? [] : list;
+    return '<div class="chart-key">' + lead + shown.map(function (item) {
       return '<span class="key-item"><i style="background:' + (item.color || '#3F768B') + '"></i>' + escapeHtml(item.label) + '</span>';
     }).join('') + '</div>';
   }
@@ -860,43 +862,49 @@ function stepControl(step, enabled, compact, attrs) {
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
 
-  function lapseSvg(bands) {
+  function shortNewerLabel(label) {
+    var match = String(label || '').match(/(\d{4})\s*[\u2013-]\s*(\d{4})/);
+    if (!match) return 'Joined 2022\u201325';
+    return 'Joined ' + match[1] + '\u2013' + match[2].slice(2);
+  }
+
+  function shortLongerLabel(label) {
+    var match = String(label || '').match(/(\d{4})/);
+    if (!match) return 'Joined \u20192021';
+    return 'Joined \u2019' + match[1];
+  }
+
+  function lapseChart(bands) {
     var rows = bands && bands.length ? bands : [];
     var w = 440;
-    var h = 188;
+    var h = 132;
     var max = 1;
     rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
     var n = rows.length || 1;
-    var gap = 18;
-    var bw = 64;
-    var total = n * bw + (n - 1) * gap;
-    var x0 = (w - total) / 2;
-    var base = 140;
-    var plotTop = 52;
-    var plot = base - plotTop;
+    var slot = w / n;
+    var bw = Math.min(56, slot - 16);
+    var base = 108;
+    var plot = 92;
     var parts = ['<line x1="16" y1="' + base + '" x2="' + (w - 16) + '" y2="' + base + '" stroke="#d5dee2"/>'];
+    var labels = rows.map(function (row) {
+      var lapsed = row.lapsed || 0;
+      var members = row.members || 0;
+      var pct = members ? Math.round((lapsed / members) * 100) : 0;
+      return '<div class="lapse-lab"><span class="pv">' + lapsed + ' of ' + members + '</span> <span class="share">' + pct + '%</span></div>';
+    }).join('');
     rows.forEach(function (row, index) {
       var lapsed = row.lapsed || 0;
       var members = row.members || 0;
       var pct = members ? Math.round((lapsed / members) * 100) : 0;
       var height = (lapsed / max) * plot;
-      var x = x0 + index * (bw + gap);
+      var x = index * slot + (slot - bw) / 2;
       var y = base - Math.max(height, lapsed ? 0 : 3);
       var color = lapsed ? '#D01F25' : '#7D949C';
       var cx = (x + bw / 2).toFixed(1);
-      parts.push('<text x="' + cx + '" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '</text>');
-      parts.push('<text x="' + cx + '" y="34" text-anchor="middle" font-size="11" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + pct + '%</text>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(base - y, 3).toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ', ' + pct + '%</title></rect>');
-      parts.push('<text x="' + cx + '" y="' + (h - 22) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(base - y, 3).toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ' ' + pct + '%</title></rect>');
+      parts.push('<text x="' + cx + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
     });
-    var cycleMembers = 0;
-    rows.forEach(function (row) { cycleMembers += row.members || 0; });
-    parts.push('<text x="' + (w / 2) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#5c6b70" font-family="Montserrat, Raleway, sans-serif">Last renewal year: ' + cycleMembers + ' members</text>');
-    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
-  }
-
-  function renewalBucket(label, value, extra) {
-    return '<div class="' + (extra || '') + '"><div class="pl">' + escapeHtml(label) + '</div><div class="pv">' + value + '</div></div>';
+    return '<div class="lapse-chart"><div class="lapse-labs">' + labels + '</div><svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg></div>';
   }
 
   function renewalCard(view) {
@@ -907,19 +915,22 @@ function stepControl(step, enabled, compact, attrs) {
     var active = view.members && view.members.value != null ? view.members.value : risk.cohort;
     var pct = active ? Math.round((risk.zeroAttendance / active) * 100) : 0;
     var tenure = risk.byTenure || {};
+    var unknown = tenure.unknown || 0;
+    var thisYear = tenure.thisYear || 0;
+    var other = unknown + thisYear;
+    var cycle = 0;
+    (risk.lapseByBand || []).forEach(function (row) { cycle += row.members || 0; });
     var parts = '<div class="pr">' +
-      renewalBucket(risk.newerLabel || 'Joined recently', tenure.newer || 0, 'is-risk') +
-      renewalBucket(risk.longerLabel || 'Joined earlier', tenure.longer || 0) +
-      renewalBucket('Join date unknown', tenure.unknown || 0) +
-      '<div class="is-new"><div class="pl">' + escapeHtml(risk.thisYearLabel || 'Joined this fiscal year') + '</div><div class="pv">' + (tenure.thisYear || 0) + '</div><div class="share">Too new to judge</div></div>' +
-      '</div>';
+      '<div><div class="pl">' + escapeHtml(shortNewerLabel(risk.newerLabel)) + '</div><div class="pv is-risk">' + (tenure.newer || 0) + '</div></div>' +
+      '<div><div class="pl">' + escapeHtml(shortLongerLabel(risk.longerLabel)) + '</div><div class="pv">' + (tenure.longer || 0) + '</div></div>' +
+      '<div><div class="pl">Other</div><div class="pv">' + other + '</div></div></div>';
+    var tip = ' Other is ' + unknown + ' with no join date and ' + thisYear + ' who joined this fiscal year. Last renewal year: ' + cycle + ' members, by events attended.';
     return card('Renewal risk', 'Renewal risk',
       '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
       '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
-      '<div class="chart-slot">' + lapseSvg(risk.lapseByBand) + '</div>' +
-      '<div class="chart-key"><span class="key-item"><i class="key-lapse"></i>Lapsed</span></div>',
-      ' card-renewal kpi-renewal', 'members', 'View the member list');
+      '<div class="chart-slot">' + lapseChart(risk.lapseByBand) + '</div>',
+      ' card-renewal kpi-renewal', 'members', 'View the member list', tip);
   }
 
   function eventsPage(view) {
