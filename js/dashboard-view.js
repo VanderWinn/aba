@@ -483,25 +483,28 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function controls(view) {
-    var clear = view.filtersActive ? '<button type="button" class="clear-filters" data-clear-filters>Clear filters</button>' : '';
+    var clear = view.filtersActive ? '<button type="button" class="clear-filters" data-clear-filters>Clear selections</button>' : '';
     return '<div class="controls"><div class="dgroup"><span class="lab">Date range</span>' + rangeMenu(view) + '</div>' +
-      '<div class="dgroup"><span class="lab">Group by</span>' + groupControl(view) + '</div>' + clear + '</div>';
+      '<div class="dgroup"><span class="lab">Group by</span>' + groupControl(view) + '</div>' + activeChips(view) + clear + '</div>';
   }
 
   function activeChips(view) {
     var chips = [];
     (view.eventTypes || []).forEach(function (type) {
-      chips.push('<button type="button" class="filter-chip" data-clear-type="' + escapeHtml(type) + '">' + escapeHtml(type) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+      chips.push('<button type="button" class="filter-chip" data-clear-type="' + escapeHtml(type) + '">Event type: ' + escapeHtml(type) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    });
+    (view.selectedBusinessTypes || []).forEach(function (type) {
+      chips.push('<button type="button" class="filter-chip" data-clear-business="' + escapeHtml(type) + '">Business type: ' + escapeHtml(type) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     });
     (view.companies || []).forEach(function (name) {
-      chips.push('<button type="button" class="filter-chip" data-clear-company="' + escapeHtml(name) + '">' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+      chips.push('<button type="button" class="filter-chip" data-clear-company="' + escapeHtml(name) + '">Company: ' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     });
     (view.people || []).forEach(function (name) {
-      chips.push('<button type="button" class="filter-chip" data-clear-person="' + escapeHtml(name) + '">' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+      chips.push('<button type="button" class="filter-chip" data-clear-person="' + escapeHtml(name) + '">Attendee: ' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     });
     if (view.audience === 'Member' || view.audience === 'Guest') {
-      var label = view.audience === 'Member' ? 'Member visits' : 'Guest visits';
-      chips.push('<button type="button" class="filter-chip" data-clear-audience>' + label + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+      var label = view.audience === 'Member' ? 'Members' : 'Guests';
+      chips.push('<button type="button" class="filter-chip" data-clear-audience>Visits: ' + label + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     }
     if (!chips.length) return '';
     return '<div class="filter-chips" aria-label="Active filters">' + chips.join('') + '</div>';
@@ -584,9 +587,10 @@ function stepControl(step, enabled, compact, attrs) {
       if (width <= 0) return;
       var need = row.text.length * 6.15;
       var inside = row.where === 'in' && width >= need;
-      var click = row.audience ? ' data-audience="' + row.audience + '" style="cursor:pointer"' : '';
       var on = row.audience && view.audience === row.audience;
-      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
+      var dim = view.audience && row.audience !== view.audience ? ' opacity="0.35"' : '';
+      var click = row.audience ? ' class="filter-hit" data-audience="' + row.audience + '" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="Visits: ' + (row.audience === 'Member' ? 'Members' : 'Guests') + '"' : '';
+      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' + dim +
         (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
       var tx = x + width / 2;
       var ty = y + barH / 2 + 4;
@@ -797,9 +801,7 @@ function stepControl(step, enabled, compact, attrs) {
     var selected = view.eventTypes || [];
     var names = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
     var rows = names.map(function (name) {
-      var value = counts[name] || 0;
-      if (selected.length && selected.indexOf(name) === -1) value = 0;
-      return { name: name, value: value };
+      return { name: name, value: counts[name] || 0 };
     });
     rows.sort(function (a, b) {
       if (b.value !== a.value) return b.value - a.value;
@@ -821,11 +823,15 @@ function stepControl(step, enabled, compact, attrs) {
       var y = y0 + index * (barH + gap);
       var bw = max ? (row.value / max) * plotW : 0;
       var cy = y + barH / 2 + 4;
-      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
+      var on = selected.indexOf(row.name) !== -1;
+      var dim = selected.length && !on ? ' opacity="0.35"' : '';
+      var stroke = on ? ' stroke="#243033" stroke-width="3"' : '';
+      parts.push('<g class="filter-hit" data-type="' + escapeHtml(row.name) + '" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="Event type: ' + escapeHtml(row.name) + '">');
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif"' + dim + '>' + escapeHtml(row.name) + '</text>');
       if (bw > 0) {
-        parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + bw.toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+        parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + bw.toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"' + dim + stroke + '><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
       }
-      parts.push('<text x="' + (labelW + bw + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+      parts.push('<text x="' + (labelW + bw + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif"' + dim + '>' + row.value + '</text></g>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Events held by event type">' + parts.join('') + '</svg>';
   }
@@ -868,9 +874,10 @@ function stepControl(step, enabled, compact, attrs) {
     var padL = 12;
     var padR = 16;
     var padTop = 18;
-    var padBot = 22;
-    var base = h - padBot;
-    var plotH = Math.max(40, base - padTop);
+    var monthBand = 18;
+    var base = Math.round((h - monthBand) * 0.56);
+    var upRoom = Math.max(24, base - padTop - 16);
+    var downRoom = Math.max(24, h - monthBand - 16 - base);
     var maxBar = 1;
     var minAct = series[0].active;
     var maxAct = series[0].active;
@@ -879,20 +886,19 @@ function stepControl(step, enabled, compact, attrs) {
       if (bucket.active < minAct) minAct = bucket.active;
       if (bucket.active > maxAct) maxAct = bucket.active;
     });
-    var barTop = padTop + plotH * 0.5;
-    var barScale = (base - barTop) / maxBar;
+    var barScale = Math.min(upRoom, downRoom) / maxBar;
     var actPad = Math.max(1, Math.round((maxAct - minAct) * 0.35) || 1);
     var actMin = minAct - actPad;
     var actMax = maxAct + actPad;
     if (actMax <= actMin) actMax = actMin + 1;
-    var lineTop = padTop + 2;
-    var lineBot = barTop - 16;
+    var lineTop = padTop;
+    var lineBot = Math.max(lineTop + 24, base - 20);
     var slot = (w - padL - padR) / n;
     var gap = 4;
     var bw = Math.max(8, Math.min(22, (slot * 0.62 - gap) / 2));
     var parts = [
       '<line x1="' + padL + '" y1="' + base + '" x2="' + (w - padR) + '" y2="' + base + '" stroke="#9aa6a9"/>',
-      '<line x1="' + (w - 8) + '" y1="' + lineTop + '" x2="' + (w - 8) + '" y2="' + lineBot + '" stroke="#c5d0d4"/>'
+      '<line x1="' + (w - 8) + '" y1="' + padTop + '" x2="' + (w - 8) + '" y2="' + (h - monthBand) + '" stroke="#c5d0d4"/>'
     ];
     function cxOf(index) { return padL + index * slot + slot / 2; }
     function barH(value) { return Math.max(value ? 2 : 0, value * barScale); }
@@ -905,12 +911,12 @@ function stepControl(step, enabled, compact, attrs) {
       var up = barH(bucket.joins);
       var down = barH(bucket.losses);
       parts.push('<rect x="' + xNew.toFixed(1) + '" y="' + (base - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + up.toFixed(1) + '" fill="' + TEAL + '"><title>New ' + bucket.joins + '</title></rect>');
-      parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + (base - down).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"><title>Cancelled ' + bucket.losses + '</title></rect>');
+      parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + base + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"><title>Cancelled ' + bucket.losses + '</title></rect>');
       parts.push('<text x="' + (xNew + bw / 2).toFixed(1) + '" y="' + (base - up - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
-      parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base - down - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
+      parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base + down + 12).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
       var y = lineY(bucket.active);
       points.push(cx.toFixed(1) + ',' + y.toFixed(1));
-      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
     });
     parts.push('<polyline points="' + points.join(' ') + '" fill="none" stroke="#243033" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>');
     series.forEach(function (bucket, index) {
@@ -963,14 +969,19 @@ function stepControl(step, enabled, compact, attrs) {
     var max = 1;
     rows.forEach(function (row) { if (row.value > max) max = row.value; });
     var plotW = Math.max(24, w - labelW - countW - 8);
+    var picked = view.selectedBusinessTypes || [];
     var parts = [];
     rows.forEach(function (row, index) {
       var y = 6 + index * (barH + gap);
       var bw = max ? (row.value / max) * plotW : 0;
       var cy = y + barH / 2 + 4;
-      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
-      if (bw > 0) parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + Math.max(bw, 2).toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
-      parts.push('<text x="' + (labelW + Math.max(bw, 2) + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+      var on = picked.indexOf(row.name) !== -1;
+      var dim = picked.length && !on ? ' opacity="0.35"' : '';
+      var stroke = on ? ' stroke="#243033" stroke-width="3"' : '';
+      parts.push('<g class="filter-hit" data-business-type="' + escapeHtml(row.name) + '" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="Business type: ' + escapeHtml(row.name) + '">');
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif"' + dim + '>' + escapeHtml(row.name) + '</text>');
+      if (bw > 0) parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + Math.max(bw, 2).toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"' + dim + stroke + '><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+      parts.push('<text x="' + (labelW + Math.max(bw, 2) + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif"' + dim + '>' + row.value + '</text></g>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Members by business type">' + parts.join('') + '</svg>';
   }
@@ -1053,7 +1064,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone), ' kpi-members', 'newMembers', 'View who joined') +
       card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone), ' kpi-net', 'changes', 'View membership change') +
       card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
-      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') : '') +
+      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', 'businesses', 'View records') : '') +
       '</div>';
   }
 
@@ -1166,7 +1177,7 @@ function stepControl(step, enabled, compact, attrs) {
       return '<tr>' + (pack.columns || []).map(function (column) {
         return '<td>' + escapeHtml(row[column.key] == null ? '' : row[column.key]) + '</td>';
       }).join('') + '</tr>';
-    }).join('') || '<tr><td colspan="' + Math.max(1, (pack.columns || []).length) + '">No records match.</td></tr>';
+    }).join('') || '<tr><td colspan="' + Math.max(1, (pack.columns || []).length) + '">No matches</td></tr>';
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
     return '<div class="drill-back" data-drill-close></div><section class="drill" role="dialog" aria-label="' + escapeHtml(pack.title) + '">' +
       '<header class="drill-bar"><button type="button" class="drill-back-btn" data-drill-close>Back</button><h2>' + escapeHtml(pack.title) + '</h2>' + badge + '</header>' +
@@ -1184,13 +1195,16 @@ function stepControl(step, enabled, compact, attrs) {
     var filterBtn = page === 'events'
       ? '<button type="button" class="filters-btn" data-filters aria-expanded="' + (filtersOpen ? 'true' : 'false') + '" aria-controls="filters">Filters' + (view.filtersActive ? ' <span class="tick">✓</span>' : '') + '</button>'
       : '';
-    var body = page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view));
+    var emptyNote = '';
+    if (view.filtersActive && page === 'events' && view.events && view.events.value === 0) emptyNote = '<p class="no-matches" role="status">No matches</p>';
+    if (view.filtersActive && page === 'membership' && view.members && view.members.value === 0) emptyNote = '<p class="no-matches" role="status">No matches</p>';
+    var body = emptyNote + (page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view)));
     var tipExtra = '';
     if (view.ytdNote) tipExtra += ' ' + view.ytdNote;
     if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers.';
     var contextTip = tipExtra ? hint('', view.ytdNote ? 'Year to date' : 'Membership filters', true, tipExtra) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
-      '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + activeChips(view) + filterBtn +
+      '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + filterBtn +
       '<div class="body">' + side + '<div class="main" id="content">' + body + '</div></div></div>' +
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }

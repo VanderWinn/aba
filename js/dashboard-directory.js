@@ -214,6 +214,29 @@
     return true;
   }
 
+  function exampleBusinesses(types) {
+    var list = [];
+    var seq = 0;
+    (types || []).forEach(function (type) {
+      var label = type.label || type.category || '';
+      var count = type.count || 0;
+      var other = label === 'Other / not listed';
+      var i;
+      for (i = 0; i < count; i++) {
+        seq += 1;
+        var month = 7 + (seq % 5);
+        var joined = seq % 5 === 0 ? ('2026-' + (month < 10 ? '0' : '') + month + '-10') : '2025-08-15';
+        list.push({
+          company: other ? ('Example Business ' + seq) : (label + ' Example ' + (i + 1)),
+          categories: other ? [] : [label],
+          joined: joined,
+          lost: ''
+        });
+      }
+    });
+    return list;
+  }
+
   function build(source) {
     var people = [];
     var seq = 0;
@@ -330,6 +353,7 @@
       people: directoryPeople,
       membership: people,
       attendance: attendance,
+      businesses: exampleBusinesses(source.businessTypes),
       narrow: narrow
     };
   }
@@ -459,11 +483,45 @@
     if (kind === 'attendance' || kind === 'distribution') {
       var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
+      var visitTitle = 'Event visits';
+      if (eventTypes.length === 1) visitTitle = eventTypes[0] + ' visits';
+      else if (eventTypes.length > 1) visitTitle = eventTypes.join(', ') + ' visits';
+      else if (audience === 'Member') visitTitle = 'Member visits';
+      else if (audience === 'Guest') visitTitle = 'Guest visits';
+      else if (kind === 'distribution') visitTitle = 'Member and guest visits';
       return {
-        title: kind === 'distribution' ? 'Member and guest visits' : 'Event visits',
+        title: visitTitle,
         kind: kind,
         columns: columnList(rows, ['name', 'audience', 'event', 'date', 'email', 'phone']),
         rows: rows
+      };
+    }
+    if (kind === 'businesses') {
+      var wanted = (view.selectedBusinessTypes || []);
+      var bizRows = [];
+      (directory.businesses || []).forEach(function (row) {
+        var cats = row.categories || [];
+        var match = !wanted.length || (cats.length ? wanted.some(function (name) { return cats.indexOf(name) !== -1; }) : wanted.indexOf('Other / not listed') !== -1);
+        if (!match) return;
+        if (row.lost && range && row.lost <= range.end) return;
+        if (row.joined && range && row.joined > range.end) return;
+        bizRows.push({
+          company: row.company,
+          category: cats.length ? cats.join(', ') : 'Other / not listed',
+          joined: row.joined || ''
+        });
+      });
+      bizRows.sort(function (a, b) { return a.company < b.company ? -1 : a.company > b.company ? 1 : 0; });
+      var bizTitle = wanted.length === 1 ? wanted[0] + ' members' : 'Active member businesses';
+      return {
+        title: bizTitle,
+        kind: kind,
+        columns: [
+          { key: 'company', label: 'Company' },
+          { key: 'category', label: 'Business type' },
+          { key: 'joined', label: 'Joined' }
+        ],
+        rows: bizRows
       };
     }
     if (kind === 'events') {
@@ -476,8 +534,9 @@
       });
       var eventRows = Object.keys(map).map(function (id) { return map[id]; });
       eventRows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      var eventTitle = eventTypes.length === 1 ? eventTypes[0] + ' events' : 'Events held';
       return {
-        title: 'Events Held',
+        title: eventTitle,
         kind: kind,
         columns: [
           { key: 'event', label: 'Event' },
@@ -607,15 +666,20 @@
       var company = String(row.company || '').trim();
       if (!company) return null;
       var deactivated = String(row.status || '').toLowerCase() === 'deactivated';
+      var categories = Array.isArray(row.categories) ? row.categories.filter(Boolean) : [];
       return {
         name: '',
         company: company,
         audience: 'Member',
         eventType: '',
+        categories: categories,
         joined: row.joinDate || row.join_date || '2011-12-31',
         lost: deactivated ? (row.lostDate || row.lost_date || '2026-06-30') : ''
       };
     }).filter(Boolean);
+    var businesses = membership.filter(function (row) { return !row.lost; }).map(function (row) {
+      return { company: row.company, categories: row.categories || [], joined: row.joined, lost: row.lost };
+    });
     var companies = consolidateLabels(payload.companies || []);
     if (!companies.length) {
       var rosterNames = [];
@@ -630,6 +694,7 @@
       people: people,
       membership: membership,
       attendance: attendance,
+      businesses: businesses,
       live: true,
       narrow: narrow
     };

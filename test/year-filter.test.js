@@ -77,10 +77,10 @@ test('three fiscal years sit side by side and event filters do not change member
   assert.match(html, /Gained/);
   assert.match(html, /Lost/);
   assert.equal(html.includes('>Open'), false);
-  assert.equal(html.includes('Clear filters'), false);
+  assert.equal(html.includes('Clear selections'), false);
   const eventsHtml = paint(filtered, { page: 'events' });
   assert.match(eventsHtml, /data-type-box="Lunch &amp; Learn" checked/);
-  assert.match(eventsHtml, /Clear filters/);
+  assert.match(eventsHtml, /Clear selections/);
   assert.match(eventsHtml, /Lunch &amp; Learn/);
   assert.match(eventsHtml, /All types in this range/);
   assert.match(eventsHtml, /Events &amp; Attendance/);

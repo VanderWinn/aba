@@ -1036,7 +1036,12 @@ select:focus-visible {
   font-weight: 600;
   line-height: 1.4;
 }
-.filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; align-items: center; }
+.controls .filter-chips { margin-top: 0; }
+.no-matches { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #3d4c50; }
+.filter-hit { cursor: pointer; }
+.filter-hit:focus { outline: none; }
+.filter-hit:focus-visible rect { stroke: #243033; stroke-width: 3; }
 .filter-chip {
   border: 1px solid var(--aba-teal-dark);
   background: var(--aba-teal-light);
@@ -1071,6 +1076,8 @@ select:focus-visible {
 .card.kpi-net { border-top-color: #24785F; background: #f4faf7; }
 .card.kpi-net .kpi-num { color: #1d6b52; }
 .card.kpi-net .tone-down { color: #D01F25; }
+.kpi-row .card.kpi-events { border-top-color: #3F768B; background: #f4f8fa; }
+.kpi-row .card.kpi-events .kpi-num { color: #2C5563; }
 .card.kpi-visits { border-top-color: #3D5A80; background: #f4f7fb; }
 .card.kpi-visits .kpi-num { color: #2C4464; }
 .card.kpi-noshow { border-top-color: #6B4C7A; background: #f8f4fa; }

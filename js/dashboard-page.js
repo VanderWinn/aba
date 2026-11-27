@@ -243,6 +243,16 @@
       update({ type: 'group', group: groupBtn.getAttribute('data-group') });
       return;
     }
+    var clearBiz = event.target.closest('[data-clear-business]');
+    if (clearBiz) {
+      update({ type: 'businessType', businessType: clearBiz.getAttribute('data-clear-business') });
+      return;
+    }
+    var bizHit = event.target.closest('[data-business-type]');
+    if (bizHit) {
+      update({ type: 'businessType', businessType: bizHit.getAttribute('data-business-type') });
+      return;
+    }
     var clearType = event.target.closest('[data-clear-type]');
     if (clearType) {
       update({ type: 'eventType', eventType: clearType.getAttribute('data-clear-type') });
@@ -400,7 +410,16 @@
 
   function onKey(event) {
     var target = event.target;
-    if (!target || event.key !== 'Enter') return;
+    if (!target) return;
+    var hit = target.closest && (target.closest('.filter-hit') || (target.getAttribute && (target.hasAttribute('data-type') || target.hasAttribute('data-business-type') || target.hasAttribute('data-audience')) ? target : null));
+    if (hit && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      if (hit.hasAttribute('data-type')) update({ type: 'eventType', eventType: hit.getAttribute('data-type') });
+      else if (hit.hasAttribute('data-business-type')) update({ type: 'businessType', businessType: hit.getAttribute('data-business-type') });
+      else if (hit.hasAttribute('data-audience')) update({ type: 'audience', audience: hit.getAttribute('data-audience') });
+      return;
+    }
+    if (event.key !== 'Enter') return;
     if (target.hasAttribute('data-find')) {
       event.preventDefault();
       var kind = target.getAttribute('data-find');
