@@ -160,10 +160,11 @@
       changes: changes,
       renewalRisk: {
         zeroAttendance: 181,
-        cohort: 320,
-        byTenure: { newer: 100, longer: 56, unknown: 25 },
+        cohort: 412,
+        byTenure: { newer: 100, longer: 56, unknown: 15, thisYear: 10 },
         newerLabel: 'Joined 2022\u20132025',
         longerLabel: 'Joined 2021 or earlier',
+        thisYearLabel: 'Joined this fiscal year',
         lapseByBand: [
           { band: '0', members: 248, lapsed: 95 },
           { band: '1\u20132', members: 34, lapsed: 2 },
@@ -213,10 +214,12 @@
         byTenure: {
           newer: whole(tenure.newer),
           longer: whole(tenure.longer),
-          unknown: whole(tenure.unknown)
+          unknown: whole(tenure.unknown),
+          thisYear: whole(tenure.thisYear)
         },
         newerLabel: String(risk.newerLabel || ''),
         longerLabel: String(risk.longerLabel || ''),
+        thisYearLabel: String(risk.thisYearLabel || ''),
         lapseByBand: (risk.lapseByBand || []).map(function (band) {
           return {
             band: String(band.band || ''),

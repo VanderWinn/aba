@@ -889,24 +889,33 @@ function stepControl(step, enabled, compact, attrs) {
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(base - y, 3).toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ', ' + pct + '%</title></rect>');
       parts.push('<text x="' + cx + '" y="' + (h - 22) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
     });
-    parts.push('<text x="' + (w / 2) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#5c6b70" font-family="Montserrat, Raleway, sans-serif">Events attended in the last renewal year</text>');
+    var cycleMembers = 0;
+    rows.forEach(function (row) { cycleMembers += row.members || 0; });
+    parts.push('<text x="' + (w / 2) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#5c6b70" font-family="Montserrat, Raleway, sans-serif">Last renewal year: ' + cycleMembers + ' members</text>');
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
+  }
+
+  function renewalBucket(label, value, extra) {
+    return '<div class="' + (extra || '') + '"><div class="pl">' + escapeHtml(label) + '</div><div class="pv">' + value + '</div></div>';
   }
 
   function renewalCard(view) {
     var risk = view.renewalRisk;
-    if (!risk || !risk.cohort) {
+    if (!risk) {
       return card('Renewal risk', 'Renewal risk', '<p class="period-tag">These totals are not in this feed yet.</p>', ' card-renewal kpi-renewal', '', '');
     }
-    var pct = Math.round((risk.zeroAttendance / risk.cohort) * 100);
+    var active = view.members && view.members.value != null ? view.members.value : risk.cohort;
+    var pct = active ? Math.round((risk.zeroAttendance / active) * 100) : 0;
     var tenure = risk.byTenure || {};
     var parts = '<div class="pr">' +
-      '<div class="is-risk"><div class="pl">' + escapeHtml(risk.newerLabel || 'Joined recently') + '</div><div class="pv">' + (tenure.newer || 0) + '</div></div>' +
-      '<div><div class="pl">' + escapeHtml(risk.longerLabel || 'Joined earlier') + '</div><div class="pv">' + (tenure.longer || 0) + '</div></div>' +
-      '<div><div class="pl">Join date unknown</div><div class="pv">' + (tenure.unknown || 0) + '</div></div></div>';
+      renewalBucket(risk.newerLabel || 'Joined recently', tenure.newer || 0, 'is-risk') +
+      renewalBucket(risk.longerLabel || 'Joined earlier', tenure.longer || 0) +
+      renewalBucket('Join date unknown', tenure.unknown || 0) +
+      '<div class="is-new"><div class="pl">' + escapeHtml(risk.thisYearLabel || 'Joined this fiscal year') + '</div><div class="pv">' + (tenure.thisYear || 0) + '</div><div class="share">Too new to judge</div></div>' +
+      '</div>';
     return card('Renewal risk', 'Renewal risk',
       '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
-      '<p class="period-tag">of ' + risk.cohort + ' members · ' + pct + '%</p>' +
+      '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
       '<div class="chart-slot">' + lapseSvg(risk.lapseByBand) + '</div>' +
       '<div class="chart-key"><span class="key-item"><i class="key-lapse"></i>Lapsed</span></div>',
