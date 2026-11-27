@@ -860,11 +860,65 @@ function stepControl(step, enabled, compact, attrs) {
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
 
+  function lapseSvg(bands) {
+    var rows = bands && bands.length ? bands : [];
+    var w = 440;
+    var h = 188;
+    var max = 1;
+    rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
+    var n = rows.length || 1;
+    var gap = 18;
+    var bw = 64;
+    var total = n * bw + (n - 1) * gap;
+    var x0 = (w - total) / 2;
+    var base = 140;
+    var plotTop = 52;
+    var plot = base - plotTop;
+    var parts = ['<line x1="16" y1="' + base + '" x2="' + (w - 16) + '" y2="' + base + '" stroke="#d5dee2"/>'];
+    rows.forEach(function (row, index) {
+      var lapsed = row.lapsed || 0;
+      var members = row.members || 0;
+      var pct = members ? Math.round((lapsed / members) * 100) : 0;
+      var height = (lapsed / max) * plot;
+      var x = x0 + index * (bw + gap);
+      var y = base - Math.max(height, lapsed ? 0 : 3);
+      var color = lapsed ? '#D01F25' : '#7D949C';
+      var cx = (x + bw / 2).toFixed(1);
+      parts.push('<text x="' + cx + '" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '</text>');
+      parts.push('<text x="' + cx + '" y="34" text-anchor="middle" font-size="11" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + pct + '%</text>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(base - y, 3).toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ', ' + pct + '%</title></rect>');
+      parts.push('<text x="' + cx + '" y="' + (h - 22) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
+    });
+    parts.push('<text x="' + (w / 2) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#5c6b70" font-family="Montserrat, Raleway, sans-serif">Events attended in the last renewal year</text>');
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
+  }
+
+  function renewalCard(view) {
+    var risk = view.renewalRisk;
+    if (!risk || !risk.cohort) {
+      return card('Renewal risk', 'Renewal risk', '<p class="period-tag">These totals are not in this feed yet.</p>', ' card-renewal kpi-renewal', '', '');
+    }
+    var pct = Math.round((risk.zeroAttendance / risk.cohort) * 100);
+    var tenure = risk.byTenure || {};
+    var parts = '<div class="pr">' +
+      '<div class="is-risk"><div class="pl">' + escapeHtml(risk.newerLabel || 'Joined recently') + '</div><div class="pv">' + (tenure.newer || 0) + '</div></div>' +
+      '<div><div class="pl">' + escapeHtml(risk.longerLabel || 'Joined earlier') + '</div><div class="pv">' + (tenure.longer || 0) + '</div></div>' +
+      '<div><div class="pl">Join date unknown</div><div class="pv">' + (tenure.unknown || 0) + '</div></div></div>';
+    return card('Renewal risk', 'Renewal risk',
+      '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
+      '<p class="period-tag">of ' + risk.cohort + ' members · ' + pct + '%</p>' +
+      parts +
+      '<div class="chart-slot">' + lapseSvg(risk.lapseByBand) + '</div>' +
+      '<div class="chart-key"><span class="key-item"><i class="key-lapse"></i>Lapsed</span></div>',
+      ' card-renewal kpi-renewal', 'members', 'View the member list');
+  }
+
   function eventsPage(view) {
     return '<div class="detail-grid">' +
       card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
       card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
+      renewalCard(view) +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
       '</div>';
   }

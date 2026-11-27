@@ -157,7 +157,20 @@
       events: events,
       attendance: attendance,
       signups: signups,
-      changes: changes
+      changes: changes,
+      renewalRisk: {
+        zeroAttendance: 181,
+        cohort: 320,
+        byTenure: { newer: 100, longer: 56, unknown: 25 },
+        newerLabel: 'Joined 2022\u20132025',
+        longerLabel: 'Joined 2021 or earlier',
+        lapseByBand: [
+          { band: '0', members: 248, lapsed: 95 },
+          { band: '1\u20132', members: 34, lapsed: 2 },
+          { band: '3\u20135', members: 38, lapsed: 5 },
+          { band: '6+', members: 23, lapsed: 0 }
+        ]
+      }
     };
   }
 
@@ -190,6 +203,29 @@
       if (missed > booked) missed = booked;
       signups.push({ eventId: id, signups: booked, noShows: missed });
     });
+    var renewalRisk = null;
+    var risk = source.renewalRisk;
+    if (risk && typeof risk === 'object') {
+      var tenure = risk.byTenure || {};
+      renewalRisk = {
+        zeroAttendance: whole(risk.zeroAttendance),
+        cohort: whole(risk.cohort),
+        byTenure: {
+          newer: whole(tenure.newer),
+          longer: whole(tenure.longer),
+          unknown: whole(tenure.unknown)
+        },
+        newerLabel: String(risk.newerLabel || ''),
+        longerLabel: String(risk.longerLabel || ''),
+        lapseByBand: (risk.lapseByBand || []).map(function (band) {
+          return {
+            band: String(band.band || ''),
+            members: whole(band.members),
+            lapsed: whole(band.lapsed)
+          };
+        }).filter(function (band) { return band.band; })
+      };
+    }
     var openings = [];
     (source.openings || []).forEach(function (row) {
       if (!isISO(row.date)) return;
@@ -216,6 +252,7 @@
       events: events,
       attendance: attendance,
       signups: signups,
+      renewalRisk: renewalRisk,
       changes: changes
     };
   }

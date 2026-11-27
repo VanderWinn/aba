@@ -40,6 +40,7 @@
     'Events Held': 'How many events took place in the date range. Event type, company, and attendee change this number. The counts beside the event types are events in this same date range.',
     'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, and attendee change this number.',
     'No-shows': 'People who signed up and were marked no-show. The count is no-shows of sign-ups. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. Company and attendee filters apply when each sign-up has a status. Event totals without a status cannot be split by company.',
+    'Renewal risk': 'Based on one renewal cycle (6/30/2026 deactivations); attendance mostly Lunch & Learn; shows a pattern, not a cause.',
     'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
     'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers on this view.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
@@ -1302,6 +1303,7 @@
       attendanceLastYear: attendanceLastYear,
       noShows: noShowsMetric,
       noShowSeries: noShowSeries,
+      renewalRisk: data.renewalRisk || null,
       pie: {
         members: pieMembers,
         guests: pieGuests,

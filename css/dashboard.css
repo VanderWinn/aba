@@ -1072,6 +1072,10 @@ select:focus-visible {
 .card.kpi-visits .kpi-num { color: #2C4464; }
 .card.kpi-noshow { border-top-color: #6B4C7A; background: #f8f4fa; }
 .card.kpi-noshow .kpi-num { color: #5A3D68; }
+.card.kpi-renewal { border-top-color: #8A5A12; background: #fbf6ee; }
+.card.kpi-renewal .kpi-num { color: #6d470e; }
+.pr .is-risk .pl, .pr .is-risk .pv { color: #7A5410; }
+.chart-key .key-lapse { background: #D01F25; }
 .detail-link {
   border: 0;
   background: transparent;
@@ -1134,12 +1138,13 @@ select:focus-visible {
 .detail-grid .pr, .chart-grid .pr { flex-wrap: wrap; }
 .detail-grid .card-events,
 .detail-grid .card-attendance,
-.detail-grid .card-noshow {
+.detail-grid .card-noshow, .detail-grid .card-renewal {
   height: 100%;
 }
 .detail-grid .card-events .bodycol,
 .detail-grid .card-attendance .bodycol,
-.detail-grid .card-noshow .bodycol {
+.detail-grid .card-noshow .bodycol,
+.detail-grid .card-renewal .bodycol {
   flex: 1 1 auto;
   justify-content: flex-start;
   align-items: stretch;
@@ -1148,21 +1153,24 @@ select:focus-visible {
 }
 .detail-grid .card-events .bodycol > *,
 .detail-grid .card-attendance .bodycol > *,
-.detail-grid .card-noshow .bodycol > * {
+.detail-grid .card-noshow .bodycol > *,
+.detail-grid .card-renewal .bodycol > * {
   margin: 0;
 }
 .detail-grid .card-events .big,
 .detail-grid .card-attendance .big,
 .detail-grid .card-events .kpi-num,
 .detail-grid .card-attendance .kpi-num,
-.detail-grid .card-noshow .kpi-num {
+.detail-grid .card-noshow .kpi-num,
+.detail-grid .card-renewal .kpi-num {
   margin: 0;
   line-height: 1;
   text-align: center;
 }
 .detail-grid .card-events .pr,
 .detail-grid .card-attendance .pr,
-.detail-grid .card-noshow .pr {
+.detail-grid .card-noshow .pr,
+.detail-grid .card-renewal .pr {
   gap: 16px;
   align-items: flex-start;
 }
@@ -1191,7 +1199,8 @@ select:focus-visible {
 .chart-key .key-lost { background: #3F768B; opacity: .4; }
 .detail-grid .card-events .chart-slot,
 .detail-grid .card-attendance .chart-slot,
-.detail-grid .card-noshow .chart-slot {
+.detail-grid .card-noshow .chart-slot,
+.detail-grid .card-renewal .chart-slot {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -1200,7 +1209,8 @@ select:focus-visible {
 }
 .detail-grid .card-events .chart,
 .detail-grid .card-attendance .chart,
-.detail-grid .card-noshow .chart {
+.detail-grid .card-noshow .chart,
+.detail-grid .card-renewal .chart {
   width: 100%;
   height: auto;
 }
@@ -1234,10 +1244,12 @@ select:focus-visible {
   .kpi-row, .chart-grid, .detail-grid { grid-template-columns: 1fr; }
   .detail-grid .card-events .bodycol,
   .detail-grid .card-attendance .bodycol,
-  .detail-grid .card-noshow .bodycol { gap: 16px; }
+  .detail-grid .card-noshow .bodycol,
+  .detail-grid .card-renewal .bodycol { gap: 16px; }
   .detail-grid .card-events .chart-slot,
   .detail-grid .card-attendance .chart-slot,
-  .detail-grid .card-noshow .chart-slot { min-height: 0; padding-bottom: 4px; }
+  .detail-grid .card-noshow .chart-slot,
+  .detail-grid .card-renewal .chart-slot { min-height: 0; padding-bottom: 4px; }
   .clear-filters { margin-left: 0; }
   .kpi-row .bodycol, .chart-grid .bodycol, .detail-grid .bodycol { gap: 16px; }
 }
