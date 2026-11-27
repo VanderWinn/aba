@@ -578,7 +578,7 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
-  function visitSplit(view, w, h) {
+  function visitSplit(view, w, h, fit) {
     var pie = view.pie || { members: 0, guests: 0 };
     var members = pie.members || 0;
     var guests = pie.guests || 0;
@@ -592,8 +592,6 @@ function stepControl(step, enabled, compact, attrs) {
     if (!showMissed && total) guestPct = Math.max(0, 100 - memberPct);
     w = w || 420;
     h = h || 160;
-    var barH = Math.max(40, Math.min(56, h - 28));
-    var y = Math.round((h - barH) / 2);
     var rows = [
       { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%' }
     ];
@@ -601,25 +599,69 @@ function stepControl(step, enabled, compact, attrs) {
     if (showMissed) {
       rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%' });
     }
-    var parts = [];
     var x = 0;
+    var outside = [];
     rows.forEach(function (row) {
-      var width = total ? (row.count / total) * w : w / rows.length;
-      if (width <= 0) return;
-      var need = row.text.length * 7 + 16;
-      var inside = width >= need;
+      row.width = total ? (row.count / total) * w : w / rows.length;
+      row.x = x;
+      row.need = fit ? row.text.length * 6.6 + 12 : row.text.length * 7 + 16;
+      row.inside = row.width >= row.need;
+      if (row.width > 0 && !row.inside) outside.push(row);
+      x += row.width;
+    });
+    var lanes = 1;
+    if (fit) {
+      outside.forEach(function (row) {
+        var tx = row.x + row.width / 2;
+        var left = tx - row.need / 2;
+        var right = tx + row.need / 2;
+        var anchor = 'middle';
+        if (left < 2) { left = 2; right = left + row.need; tx = 4; anchor = 'start'; }
+        if (right > w - 2) { right = w - 2; left = right - row.need; tx = w - 4; anchor = 'end'; }
+        var lane = 0;
+        var clear = false;
+        while (!clear) {
+          clear = true;
+          outside.forEach(function (other) {
+            if (other === row || other.lane !== lane) return;
+            if (left < other.right + 6 && right > other.left - 6) clear = false;
+          });
+          if (!clear) lane += 1;
+        }
+        row.lane = lane;
+        row.left = left;
+        row.right = right;
+        row.tx = tx;
+        row.anchor = anchor;
+        if (lane + 1 > lanes) lanes = lane + 1;
+      });
+    }
+    var barH = Math.max(40, Math.min(56, h - 28));
+    var y = Math.round((h - barH) / 2);
+    if (fit) {
+      y = 8 + lanes * 16;
+      barH = Math.max(28, h - y - 8);
+    }
+    var parts = [];
+    rows.forEach(function (row) {
+      if (row.width <= 0) return;
       var click = row.audience ? ' data-audience="' + row.audience + '" style="cursor:pointer"' : '';
       var on = row.audience && view.audience === row.audience;
-      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
+      parts.push('<g' + click + '><rect x="' + row.x.toFixed(1) + '" y="' + y + '" width="' + row.width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
         (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
-      var tx = x + width / 2;
-      var ty = inside ? (y + barH / 2 + 4) : (y - 8);
-      var fill = inside ? row.ink : '#243033';
+      var tx = row.x + row.width / 2;
+      var ty = row.inside ? (y + barH / 2 + 4) : (y - 8);
+      var fill = row.inside ? row.ink : '#243033';
       var anchor = 'middle';
-      if (!inside && tx < need / 2) { tx = 4; anchor = 'start'; }
-      if (!inside && tx > w - need / 2) { tx = w - 4; anchor = 'end'; }
+      if (!row.inside && fit) {
+        tx = row.tx;
+        ty = y - 6 - (row.lane || 0) * 16;
+        anchor = row.anchor || 'middle';
+      } else if (!row.inside) {
+        if (tx < row.need / 2) { tx = 4; anchor = 'start'; }
+        if (tx > w - row.need / 2) { tx = w - 4; anchor = 'end'; }
+      }
       parts.push('<text x="' + tx.toFixed(1) + '" y="' + ty + '" text-anchor="' + anchor + '" font-size="12" font-weight="700" fill="' + fill + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(row.text) + '</text></g>');
-      x += width;
     });
     var label = rows.map(function (row) { return row.text; }).join('. ');
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(label) + '">' + parts.join('') + '</svg>';
@@ -966,27 +1008,28 @@ function stepControl(step, enabled, compact, attrs) {
     var max = 1;
     rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
     var n = rows.length || 1;
-    var gap = 28;
-    var bw = Math.max(22, Math.min(54, (w - 24 - gap * (n - 1)) / n));
-    var total = n * bw + (n - 1) * gap;
-    var x0 = (w - total) / 2;
-    var base = Math.max(48, h - 22);
-    var plot = Math.max(40, base - 28);
+    var col = w / n;
+    var bw = Math.max(18, Math.min(48, col * 0.42));
+    var base = h - 20;
+    var plot = Math.max(8, base - 22);
     var parts = ['<line x1="8" y1="' + base + '" x2="' + (w - 8) + '" y2="' + base + '" stroke="#d5dee2"/>'];
     rows.forEach(function (row, index) {
       var lapsed = row.lapsed || 0;
       var members = row.members || 0;
       var pct = members ? Math.round((lapsed / members) * 100) : 0;
+      var longText = lapsed + ' of ' + members + ' \u00b7 ' + pct + '%';
+      var shortText = lapsed + '/' + members + ' \u00b7 ' + pct + '%';
+      var label = longText.length * 7.1 <= col - 8 ? longText : shortText;
       var height = (lapsed / max) * plot;
       var barH = Math.max(height, lapsed ? 0 : 3);
-      var x = x0 + index * (bw + gap);
+      var cx = (index + 0.5) * col;
+      var x = cx - bw / 2;
       var y = base - barH;
       var color = lapsed ? '#D01F25' : '#7D949C';
-      var cx = (x + bw / 2).toFixed(1);
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ' ' + pct + '%</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + escapeHtml(longText) + '</title></rect>');
       var labelY = Math.min(y - 6, base - 18);
-      parts.push('<text x="' + cx + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '<tspan font-size="12" font-weight="650" fill="#3d4c50"> ' + pct + '%</tspan></text>');
-      parts.push('<text x="' + cx + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(label) + '</text>');
+      parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
   }
@@ -1018,12 +1061,14 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function eventsPage(view) {
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="detail-grid">' +
       card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot" data-chart="events">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
       card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
-      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split" data-bar="fit">' + visitSplit(view, 420, 160, true) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -1088,7 +1133,7 @@ function stepControl(step, enabled, compact, attrs) {
       if (kind === 'gains') svg = gainsChart(view, w, h);
       else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
       else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
-      else if (kind === 'split') svg = visitSplit(view, w, h);
+      else if (kind === 'split') svg = visitSplit(view, w, h, host.getAttribute('data-bar') === 'fit');
       else svg = chartFor(view, kind, w, h);
       host.innerHTML = svg;
     }
