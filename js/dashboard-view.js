@@ -920,23 +920,44 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="New and cancelled members by period, with active members ending at ' + series[series.length - 1].active + '">' + parts.join('') + '</svg>';
   }
 
-  function businessTypeBars(view, w) {
-    var rows = (view.businessTypes || []).map(function (row) {
-      return { name: row.label, value: row.count || 0 };
-    }).filter(function (row) { return row.name; });
+  function businessTypeRows(view) {
+    var otherName = 'Other / not listed';
+    var other = null;
+    var rows = [];
+    (view.businessTypes || []).forEach(function (row) {
+      var name = row.label || row.category || '';
+      var value = row.count || 0;
+      if (!name || !value) return;
+      if (name === otherName) other = { name: name, value: value };
+      else rows.push({ name: name, value: value });
+    });
     rows.sort(function (a, b) {
       if (b.value !== a.value) return b.value - a.value;
       return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
     });
-    if (!rows.length) return '<p class="period-tag">Categories are not in this feed yet.</p>';
+    if (other) rows.push(other);
+    return rows;
+  }
+
+  function businessTypeBars(view, w, slotH) {
+    var rows = businessTypeRows(view);
+    if (!rows.length) return '';
+    var barH = 16;
+    var gap = 8;
+    var pitch = barH + gap;
+    if (slotH && slotH >= pitch) {
+      var fit = Math.max(1, Math.floor((slotH - 4) / pitch));
+      var other = rows[rows.length - 1].name === 'Other / not listed' ? rows[rows.length - 1] : null;
+      var named = other ? rows.slice(0, -1) : rows;
+      if (other && fit >= 2) rows = named.slice(0, fit - 1).concat([other]);
+      else rows = named.slice(0, fit);
+    }
     w = w || 320;
     var longest = 0;
     rows.forEach(function (row) { if (row.name.length > longest) longest = row.name.length; });
     var labelW = Math.min(Math.round(longest * 6.35) + 10, Math.max(120, w - 88));
     var countW = 36;
-    var gap = 8;
-    var barH = 16;
-    var h = 8 + rows.length * (barH + gap);
+    var h = 8 + rows.length * pitch;
     var max = 1;
     rows.forEach(function (row) { if (row.value > max) max = row.value; });
     var plotW = Math.max(24, w - labelW - countW - 8);
@@ -1030,7 +1051,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone), ' kpi-members', 'newMembers', 'View who joined') +
       card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone), ' kpi-net', 'changes', 'View membership change') +
       card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
-      card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') +
+      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', '', '') : '') +
       '</div>';
   }
 
@@ -1183,9 +1204,11 @@ function stepControl(step, enabled, compact, attrs) {
       var h = Math.floor(host.clientHeight);
       var kind = host.getAttribute('data-chart');
       if (kind === 'types') {
-        if (w < 40 || host._chartW === w) return;
+        if (w < 40 || h < 24) return;
+        if (host._chartW === w && host._chartH === h) return;
         host._chartW = w;
-        host.innerHTML = businessTypeBars(view, w);
+        host._chartH = h;
+        host.innerHTML = businessTypeBars(view, w, h);
         return;
       }
       if (w < 40 || h < 40) return;

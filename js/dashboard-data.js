@@ -263,8 +263,8 @@
       changes.push({ date: row.date, audience: audience, eventType: type, joins: joins, losses: losses });
     });
     var businessTypes = (source.businessTypes || []).map(function (row) {
-      return { label: String(row.label || '').trim(), count: whole(row.count) };
-    }).filter(function (row) { return row.label; });
+      return { label: String(row.category || row.label || '').trim(), count: whole(row.count) };
+    }).filter(function (row) { return row.label && row.count; });
     return {
       example: source.example === true,
       asOf: isISO(source.asOf) ? source.asOf : '',
