@@ -1082,6 +1082,23 @@ select:focus-visible {
 .tog-check { width: 100%; }
 .tog-check .n { margin-left: auto; color: var(--soft); font-weight: 700; }
 .tick { font-weight: 800; }
+.visit-donut { display: flex; align-items: center; gap: 16px; width: 100%; }
+.donut { width: 148px; height: 148px; flex: none; }
+.donut-labels { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.donut-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  font-weight: 700;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--ink);
+}
+.donut-label.is-on { border-color: var(--aba-teal-dark); background: var(--aba-teal-light); }
+.donut-label .swatch { width: 12px; height: 12px; border-radius: 2px; flex: none; }
 .hbar { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .hbar-row {
   display: grid;
@@ -1113,6 +1130,9 @@ select:focus-visible {
 @media (max-width: 800px) {
   .docbar { display: flex; flex-wrap: wrap; }
   .topnav { width: 100%; justify-content: flex-start; }
+  .docbar { overflow: visible; align-items: flex-start; }
+  .brand-wrap { flex-wrap: wrap; width: 100%; overflow: visible; }
+  .example-badge { flex: 0 0 auto; flex-basis: auto; max-width: none; }
   .filters-btn {
     display: inline-flex;
     align-items: center;

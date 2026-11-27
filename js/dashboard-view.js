@@ -89,31 +89,6 @@
     return Math.ceil(max * 1.2 / 10) * 10;
   }
 
-  function patternDefs(items) {
-    return '<defs>' + items.map(function (item, index) {
-      var id = 'pat' + index;
-      var color = item.color || TEAL;
-      var base = '<rect width="6" height="6" fill="' + color + '"/>';
-      if (item.pattern === 'stripe') {
-        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 6 L6 0" stroke="#ffffff" stroke-width="1.6"/></pattern>';
-      }
-      if (item.pattern === 'dot') {
-        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<circle cx="1.3" cy="1.3" r="1.15" fill="#ffffff"/></pattern>';
-      }
-      if (item.pattern === 'diag') {
-        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 6 L6 0 M-1 1 L1 -1 M5 7 L7 5" stroke="#ffffff" stroke-width="1.3"/></pattern>';
-      }
-      if (item.pattern === 'cross') {
-        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 3 H6 M3 0 V6" stroke="#ffffff" stroke-width="1.2"/></pattern>';
-      }
-      return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '</pattern>';
-    }).join('') + '</defs>';
-  }
-
-  function patternFill(index) {
-    return 'url(#pat' + index + ')';
-  }
-
   function yearLegend(parts, items, gainedLost) {
     var legendFont = 'font-size="11" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif"';
     var x = 8;
@@ -125,7 +100,7 @@
       x += 46;
     }
     items.forEach(function (item, index) {
-      parts.push('<rect x="' + x + '" y="5" width="10" height="10" rx="1" fill="' + patternFill(index) + '" stroke="' + item.color + '" stroke-width="0.6"/>');
+      parts.push('<rect x="' + x + '" y="5" width="10" height="10" rx="1" fill="' + (item.color || TEAL) + '"/>');
       parts.push('<text x="' + (x + 14) + '" y="14" ' + legendFont + '>' + escapeHtml(item.label) + '</text>');
       x += 14 + String(item.label || '').length * 6.4 + 12;
     });
@@ -147,14 +122,14 @@
     var bw = Math.max(18, Math.min(48, (w - 40 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var parts = [patternDefs(series), '<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
+    var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     yearLegend(parts, series, true);
     series.forEach(function (bar, index) {
       var x = x0 + index * (bw + gap);
       var up = (bar.joins || 0) * sc;
       var down = (bar.losses || 0) * sc;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + patternFill(index) + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + patternFill(index) + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
       if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
@@ -174,13 +149,13 @@
     var x0 = (w - total) / 2;
     var base = 124;
     var plot = 78;
-    var parts = [patternDefs(bars)];
+    var parts = [];
     yearLegend(parts, bars, false);
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
       var y = base - height;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + patternFill(index) + '"><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.value || 0) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
@@ -198,7 +173,7 @@
     var plot = 82;
     var slot = (w - 16) / groups.length;
     var bw = Math.max(6, Math.min(16, (slot - 10) / sample.length));
-    var parts = [patternDefs(sample)];
+    var parts = [];
     yearLegend(parts, sample, key === 'joins');
     groups.forEach(function (group, index) {
       var left = 8 + index * slot + (slot - bw * group.bars.length) / 2;
@@ -207,7 +182,7 @@
         var height = ((bar[key] || 0) / max) * plot;
         var x = left + barIndex * bw;
         var y = base - height;
-        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + patternFill(barIndex) + '" opacity="' + (key === 'joins' ? '1' : '1') + '"><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>');
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>');
       });
       parts.push('<text x="' + (8 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
     });
@@ -615,33 +590,131 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="rail-block"><div class="h">Attendee</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'person') + '</div>';
   }
 
-  function hbar(view) {
+  function visitDonut(view) {
     var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
-    function row(audience, label, count, pct) {
+    var members = pie.members || 0;
+    var guests = pie.guests || 0;
+    var total = members + guests;
+    var memberColor = '#3F768B';
+    var guestColor = '#7D949C';
+    var radius = 46;
+    var circ = 2 * Math.PI * radius;
+    var memberLen = total ? (members / total) * circ : 0;
+    var svg = total
+      ? '<svg class="donut" viewBox="0 0 140 140" role="img" aria-label="Member visits ' + members + ', ' + pie.memberPct + ' percent. Guest visits ' + guests + ', ' + pie.guestPct + ' percent.">' +
+        '<circle cx="70" cy="70" r="' + radius + '" fill="none" stroke="' + guestColor + '" stroke-width="22"/>' +
+        (members ? '<circle cx="70" cy="70" r="' + radius + '" fill="none" stroke="' + memberColor + '" stroke-width="22" stroke-dasharray="' + memberLen.toFixed(2) + ' ' + (circ - memberLen).toFixed(2) + '" transform="rotate(-90 70 70)"/>' : '') +
+        '</svg>'
+      : emptyChart('is-pie');
+    function row(audience, label, count, pct, color) {
       var on = view.audience === audience;
-      return '<button type="button" class="hbar-row' + (on ? ' is-on' : '') + '" data-audience="' + audience + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-        '<span class="hbar-name">' + label + (on ? ' <span class="tick">✓ Selected</span>' : '') + '</span>' +
-        '<span class="hbar-count">' + count + '</span><span class="hbar-pct">' + pct + '%</span>' +
-        '<span class="hbar-track" aria-hidden="true"><span class="hbar-fill ' + audience.toLowerCase() + '" style="width:' + Math.max(0, Math.min(100, pct)) + '%"></span></span></button>';
+      return '<button type="button" class="donut-label' + (on ? ' is-on' : '') + '" data-audience="' + audience + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="swatch" style="background:' + color + '" aria-hidden="true"></span>' +
+        escapeHtml(label) + ' ' + count + ' · ' + pct + '%' + (on ? ' <span class="tick">✓ Selected</span>' : '') + '</button>';
     }
-    return '<div class="hbar" role="group" aria-label="Member visits ' + pie.members + ', guest visits ' + pie.guests + '">' +
-      row('Member', 'Member visits', pie.members, pie.memberPct) +
-      row('Guest', 'Guest visits', pie.guests, pie.guestPct) + '</div>';
+    return '<div class="visit-donut">' + svg + '<div class="donut-labels">' +
+      row('Member', 'Member visits', members, pie.memberPct, memberColor) +
+      row('Guest', 'Guest visits', guests, pie.guestPct, guestColor) + '</div></div>';
+  }
+
+  function solidLineSvg(values, labels, kind, color) {
+    var n = values.length || 1;
+    var w = n > 10 ? Math.max(520, n * 44) : 420;
+    var h = 150;
+    var padX = 18;
+    var padTop = 28;
+    var yZero = h - 22;
+    var plotH = yZero - padTop;
+    var ymax = niceMax(values);
+    var cw = (w - 2 * padX) / n;
+    function xx(i) { return padX + (i + 0.5) * cw; }
+    function yy(v) { return yZero - ((v || 0) / ymax) * plotH; }
+    var parts = ['<line x1="' + padX + '" y1="' + yZero + '" x2="' + (w - padX) + '" y2="' + yZero + '" stroke="#d5dee2"/>'];
+    var points = values.map(function (value, index) { return xx(index).toFixed(1) + ',' + yy(value).toFixed(1); }).join(' ');
+    parts.push('<polyline points="' + points + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>');
+    values.forEach(function (value, index) {
+      var x = xx(index);
+      var y = yy(value);
+      parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"><title>' + escapeHtml((labels[index] || '') + ' ' + value) + '</title></circle>');
+      parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
+      parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
+  }
+
+  function multiLineSvg(groups, key, kind) {
+    var sample = (groups[0] && groups[0].bars) || [];
+    var n = groups.length || 1;
+    var w = Math.max(480, n * 52);
+    var h = 188;
+    var padX = 24;
+    var yZero = h - 22;
+    var plotTop = 52;
+    var plotH = yZero - plotTop;
+    var max = 1;
+    groups.forEach(function (group) {
+      (group.bars || []).forEach(function (bar) {
+        if (!bar.skipped) max = Math.max(max, bar[key] || 0);
+      });
+    });
+    var ymax = niceMax([max]);
+    var cw = (w - 2 * padX) / n;
+    function xx(i) { return padX + (i + 0.5) * cw; }
+    function yy(v) { return yZero - ((v || 0) / ymax) * plotH; }
+    var parts = ['<line x1="' + padX + '" y1="' + yZero + '" x2="' + (w - 8) + '" y2="' + yZero + '" stroke="#d5dee2"/>'];
+    yearLegend(parts, sample, false);
+    sample.forEach(function (seriesBar, seriesIndex) {
+      var segment = [];
+      function flush() {
+        if (segment.length) {
+          parts.push('<polyline points="' + segment.join(' ') + '" fill="none" stroke="' + seriesBar.color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>');
+        }
+        segment = [];
+      }
+      groups.forEach(function (group, index) {
+        var bar = (group.bars || [])[seriesIndex];
+        if (!bar || bar.skipped) {
+          flush();
+          return;
+        }
+        var x = xx(index);
+        var y = yy(bar[key]);
+        segment.push(x.toFixed(1) + ',' + y.toFixed(1));
+        parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.2" fill="' + seriesBar.color + '"><title>' + escapeHtml(bar.label + ' ' + group.label + ' ' + (bar[key] || 0)) + '</title></circle>');
+        var show = n <= 6 || index === groups.length - 1 || index % 2 === seriesIndex % 2;
+        if (show) {
+          var lift = 10 + (seriesIndex % 2) * 12;
+          parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - lift).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + seriesBar.color + '" font-family="Montserrat, Raleway, sans-serif">' + (bar[key] || 0) + '</text>');
+        }
+      });
+      flush();
+    });
+    groups.forEach(function (group, index) {
+      if (n > 8 && index % 2 && index !== n - 1) return;
+      parts.push('<text x="' + xx(index).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ', one line per fiscal year">' + parts.join('') + '</svg>';
   }
 
   function chartFor(view, kind) {
-    var values = kind === 'events' ? view.eventSeries : view.attendanceSeries;
-    var lastYear = kind === 'events' ? view.eventLastYear : view.attendanceLastYear;
     var title = kind === 'events' ? 'Events held' : 'Event visits';
+    var key = kind === 'events' ? 'events' : 'attendance';
+    if (view.group === 'month' || view.group === 'quarter') {
+      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title);
+      var values = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+      var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
+      var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
+      return solidLineSvg(values, labels, title, color);
+    }
     if (view.group === 'year' && view.yearBars) {
-      var key = kind === 'events' ? 'events' : 'attendance';
       return yearCountSvg(view.yearBars.map(function (bar) {
-        return { label: bar.label, value: bar[key], color: bar.color, pattern: bar.pattern };
+        return { label: bar.label, value: bar[key], color: bar.color };
       }), title);
     }
-    if (view.groups) return groupedSvg(view.groups, kind === 'events' ? 'events' : 'attendance', title);
-    var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
-    return lineSvg(values, lastYear, labels, title, view.mobile);
+    if (view.groups) return groupedSvg(view.groups, key, title);
+    var fallback = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+    var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
+    return solidLineSvg(fallback, fallbackLabels, title, TEAL);
   }
 
   function gainsChart(view) {
@@ -656,7 +729,7 @@ function stepControl(step, enabled, compact, attrs) {
 
   function gainsCard(view) {
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<p class="series-key">' + (view.groups && view.group !== 'year' ? 'These bars are members gained.' : 'Solid bars are gained. Pale bars are lost. Each year has its own pattern.') + '</p><div class="chart-slot">' + gainsChart(view) + '</div>',
+      '<p class="series-key">' + (view.groups && view.group !== 'year' ? 'These bars are members gained. Each year has its own color.' : 'Solid bars are gained. Pale bars are lost. Each year has its own color.') + '</p><div class="chart-slot">' + gainsChart(view) + '</div>',
       ' card-gains', 'changes', 'View the member list');
   }
 
@@ -669,7 +742,7 @@ function stepControl(step, enabled, compact, attrs) {
       '</div>' + ytdLine(view) + '<div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'page:events', 'View events and attendance') +
-      card('Member and guest visits', 'Attendance Distribution', hbar(view), ' card-pie', 'attendance', 'View the visit list') +
+      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -685,7 +758,7 @@ function stepControl(step, enabled, compact, attrs) {
     return ytdLine(view) + '<div class="detail-grid">' +
       card('Events held', 'Events Held', headline(String(view.events.value), view.events.tone, 'big-mid', 'events', '') + '<p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>' + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'events', 'View the event list') +
       card('Total event visits', 'Attendance', headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', '') + '<p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>' + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'attendance', 'View the visit list') +
-      card('Member and guest visits', 'Attendance Distribution', hbar(view), ' card-pie', 'distribution', 'View the visit list') +
+      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
       '</div>';
   }
 

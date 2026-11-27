@@ -25,7 +25,7 @@
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
     'Date range': 'Sets which dates the numbers cover. This fiscal year runs from July 1 through today. Last 12 months is the trailing year. Last 3 fiscal years includes the two completed years and this year to date. Custom is a choice of fiscal years, dates, or both. A year that has not ended is marked year to date and is compared with the same dates last year.',
-    'Group by': 'Changes how the charts are split. It does not change the totals. Month, quarter, or fiscal year. Several years grouped by year sit side by side, one pattern and color each.',
+    'Group by': 'Changes how the charts are split. It does not change the totals. Month, quarter, or fiscal year. Several years grouped by year sit side by side, one solid color each.',
     'Year selector': 'Choose one or more fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. The page starts with the current year and the year before it. Each selected year gets its own color. This control is not used when Last 12 months is selected.',
     'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to the current fiscal quarter inside that year, or the last quarter of a past year. Month sets every total to the current calendar month inside that year, or the last month of a past year. The current quarter or month runs through today. Last 12 months uses the trailing 12 months and ignores the fiscal year. Each chart period is that period alone. Member Gains and Losses pairs it with the same period last fiscal year.',
     'Year': 'Sets every total to the fiscal year chosen at the left. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
@@ -36,7 +36,7 @@
     'Members': 'Active member businesses at the end of the date range. This count is not changed by event type, company, or attendee. A partial year is the count as of today.',
     'New Members': 'Business members who joined during the date range. A partial year counts only through today and is compared with the same dates one year earlier.',
     'Net Gain': 'Business members who joined minus business members who left during the date range. A partial year is year to date and is compared with the same dates last year, not the full prior year.',
-    'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own color and pattern. A year marked YTD runs through today.',
+    'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
     'Events Held': 'How many events took place in the date range. Event type, company, and attendee change this number. The counts beside the event types are events in this same date range.',
     'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, and attendee change this number.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
@@ -411,8 +411,7 @@
     return picked;
   }
 
-  var YEAR_COLORS = ['#3F768B', '#24785F', '#2C5563', '#7D949C', '#5C8A9A'];
-  var YEAR_PATTERNS = ['solid', 'stripe', 'dot', 'diag', 'cross'];
+  var YEAR_COLORS = ['#3F768B', '#24785F', '#3D5A80', '#8C6D3F', '#5C4D7A'];
 
   function yearSlot(year, chosen) {
     var fromEnd = chosen.length - 1 - chosen.indexOf(Number(year));
@@ -425,7 +424,7 @@
   }
 
   function yearPattern(year, chosen) {
-    return YEAR_PATTERNS[yearSlot(year, chosen)];
+    return 'solid';
   }
 
   function clampEnd(end, today) {

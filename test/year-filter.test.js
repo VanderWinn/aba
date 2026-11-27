@@ -52,8 +52,8 @@ test('three fiscal years sit side by side and event filters do not change member
   assert.equal(three.contextLine, 'FY2025–FY2027 · Grouped by fiscal year · All event types');
   assert.deepEqual(Array.from(three.yearBars, (bar) => bar.label), ['FY2025', 'FY2026', 'FY2027 YTD']);
   assert.equal(new Set(Array.from(three.yearBars, (bar) => bar.color)).size, 3);
-  assert.equal(new Set(Array.from(three.yearBars, (bar) => bar.pattern)).size, 3);
-  assert.equal(three.yearBars.some((bar) => bar.color === '#B84734'), false);
+  assert.deepEqual(Array.from(new Set(Array.from(three.yearBars, (bar) => bar.pattern))), ['solid']);
+  assert.equal(three.yearBars.some((bar) => bar.color === '#B84734' || bar.color === '#D01F25'), false);
   assert.equal(three.events.value, three.eventCounts.all);
   assert.equal(three.events.value, three.yearBars[0].events + three.yearBars[1].events + three.yearBars[2].events);
   const filtered = dash.compute(data, { rangeKind: 'last3', group: 'year', eventTypes: ['Lunch & Learn'], companies: ['Ada River Cafe'] });
@@ -65,7 +65,11 @@ test('three fiscal years sit side by side and event filters do not change member
   assert.match(html, /Hospitality Sign-Up/);
   assert.match(html, /Documents/);
   assert.match(html, /View membership details/);
-  assert.match(html, /Member visits/);
+  assert.match(html, /Member visits \d+ · \d+%/);
+  assert.equal(html.includes('patternUnits'), false);
+  const monthHtml = paint(dash.compute(data, { rangeKind: 'last3', group: 'month' }));
+  assert.match(monthHtml, /<polyline /);
+  assert.match(monthHtml, /one line per fiscal year/);
   assert.match(html, /Guest visits/);
   assert.match(html, /Gained/);
   assert.match(html, /Lost/);
