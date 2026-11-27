@@ -66,18 +66,18 @@
       (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
   }
 
-  function card(title, key, body, extra, drill, linkLabel) {
+  function card(title, key, body, extra, drill, linkLabel, tipExtra) {
     var link = '';
     if (linkLabel) {
       var jump = String(drill || '');
       var attr = jump.indexOf('page:') === 0
         ? 'data-page="' + jump.slice(5) + '"'
         : 'data-drill="' + escapeHtml(jump) + '"';
-      link = '<button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button>';
+      link = '<div class="card-foot"><button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button></div>';
     }
-    var icon = key ? hint('', key, true) : '';
+    var icon = key ? hint('', key, true, tipExtra) : '';
     return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + escapeHtml(title) + icon +
-      '</h2>' + link + '</div><div class="bodycol">' + body + '</div></section>';
+      '</h2></div><div class="bodycol">' + body + '</div>' + link + '</section>';
   }
 
   function niceMax(values) {
@@ -123,7 +123,6 @@
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
     var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
-    yearLegend(parts, series, true);
     series.forEach(function (bar, index) {
       var x = x0 + index * (bw + gap);
       var up = (bar.joins || 0) * sc;
@@ -150,7 +149,6 @@
     var base = 124;
     var plot = 78;
     var parts = [];
-    yearLegend(parts, bars, false);
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
@@ -174,7 +172,6 @@
     var slot = (w - 16) / groups.length;
     var bw = Math.max(6, Math.min(16, (slot - 10) / sample.length));
     var parts = [];
-    yearLegend(parts, sample, key === 'joins');
     groups.forEach(function (group, index) {
       var left = 8 + index * slot + (slot - bw * group.bars.length) / 2;
       group.bars.forEach(function (bar, barIndex) {
@@ -584,10 +581,10 @@ function stepControl(step, enabled, compact, attrs) {
     }).join('');
     var allCount = (view.eventCounts && view.eventCounts.all) || 0;
     var allLine = (view.eventTypes || []).length ? '' : '<p class="all-types"><span class="tick">✓</span> All event types, none checked</p>';
-    return '<div class="rail-block"><div class="h">Event type</div><p class="count-note">Counts are events in this date range. All means none checked.</p>' +
+    return '<div class="rail-block"><div class="h">' + hint('Event type', 'Event type') + '</div>' +
       '<p class="range-count">All types in this range <b>' + allCount + '</b></p>' + allLine + rows + '</div>' +
-      '<div class="rail-block"><div class="h">Company</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'company') + '</div>' +
-      '<div class="rail-block"><div class="h">Attendee</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'person') + '</div>';
+      '<div class="rail-block"><div class="h">' + hint('Company', 'Company') + '</div>' + multiMenu(view, 'company') + '</div>' +
+      '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
   function visitDonut(view) {
@@ -612,7 +609,7 @@ function stepControl(step, enabled, compact, attrs) {
         '<span class="swatch" style="background:' + color + '" aria-hidden="true"></span>' +
         escapeHtml(label) + ' ' + count + ' · ' + pct + '%' + (on ? ' <span class="tick">✓ Selected</span>' : '') + '</button>';
     }
-    return '<div class="visit-donut">' + svg + '<div class="donut-labels">' +
+    return '<div class="visit-donut">' + svg + '<div class="chart-key donut-labels">' +
       row('Member', 'Member visits', members, pie.memberPct, memberColor) +
       row('Guest', 'Guest visits', guests, pie.guestPct, guestColor) + '</div></div>';
   }
@@ -667,7 +664,7 @@ function stepControl(step, enabled, compact, attrs) {
     var h = n > 6 ? (compact ? 280 : 320) : 230;
     var padX = 28;
     var yZero = h - 28;
-    var plotTop = 72;
+    var plotTop = 36;
     var plotH = yZero - plotTop;
     var max = 1;
     groups.forEach(function (group) {
@@ -680,7 +677,6 @@ function stepControl(step, enabled, compact, attrs) {
     function xx(i) { return padX + (i + 0.5) * cw; }
     function yy(v) { return yZero - ((v || 0) / ymax) * plotH; }
     var parts = ['<line x1="' + padX + '" y1="' + yZero + '" x2="' + (w - 12) + '" y2="' + yZero + '" stroke="#d5dee2"/>'];
-    yearLegend(parts, sample, false);
     sample.forEach(function (seriesBar, seriesIndex) {
       var segment = [];
       var lastIndex = -1;
@@ -749,7 +745,6 @@ function stepControl(step, enabled, compact, attrs) {
     var gap = 3;
     var bw = Math.max(8, Math.min(16, (slot - 12 - gap * (seriesCount - 1)) / seriesCount));
     var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
-    yearLegend(parts, sample, true);
     groups.forEach(function (group, index) {
       var totalW = seriesCount * bw + (seriesCount - 1) * gap;
       var left = 10 + index * slot + (slot - totalW) / 2;
@@ -770,11 +765,11 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function chartFor(view, kind) {
-    var title = kind === 'events' ? 'Events held' : 'Event visits';
-    var key = kind === 'events' ? 'events' : 'attendance';
+    var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
+    var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
     if (view.group === 'month' || view.group === 'quarter') {
       if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile);
-      var values = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+      var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
       return solidLineSvg(values, labels, title, color, view.mobile);
@@ -785,7 +780,7 @@ function stepControl(step, enabled, compact, attrs) {
       }), title);
     }
     if (view.groups) return groupedSvg(view.groups, key, title);
-    var fallback = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+    var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile);
   }
@@ -800,37 +795,149 @@ function stepControl(step, enabled, compact, attrs) {
     return view.ytdNote ? '<p class="ytd-note">' + escapeHtml(view.ytdNote) + '</p>' : '';
   }
 
+  function periodTag(metric) {
+    return '<p class="period-tag">' + (metric && metric.tag ? escapeHtml(metric.tag) : '\u00a0') + '</p>';
+  }
+
+  function legendItems(view) {
+    if (view.group !== 'year' && view.groups && view.groups[0] && view.groups[0].bars && view.groups[0].bars.length) {
+      return view.groups[0].bars;
+    }
+    return view.yearBars || [];
+  }
+
+  function chartKey(items, gainedLost) {
+    var list = items || [];
+    if (!gainedLost && list.length < 2) return '';
+    var lead = gainedLost
+      ? '<span class="key-item"><i class="key-gained"></i>Gained</span><span class="key-item"><i class="key-lost"></i>Lost</span>'
+      : '';
+    var shown = gainedLost && list.length < 2 ? [] : list;
+    return '<div class="chart-key">' + lead + shown.map(function (item) {
+      return '<span class="key-item"><i style="background:' + (item.color || '#3F768B') + '"></i>' + escapeHtml(item.label) + '</span>';
+    }).join('') + '</div>';
+  }
+
   function gainsCard(view) {
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<p class="series-key">Solid bars are gained. Pale bars are lost. Each year has its own color.</p><div class="chart-slot">' + gainsChart(view) + '</div>',
+      '<div class="chart-slot">' + gainsChart(view) + '</div>' + chartKey(legendItems(view), true),
       ' card-gains', 'changes', 'View the member list');
   }
 
   function overview(view) {
+    var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
     return '<div class="kpi-row">' +
-      card('Active member businesses', 'Members', '<p class="kpi-value">' + view.members.value + '</p><p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + (view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat') + '">' + signed(view.net.value) + '</p><p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p><p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p><p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
-      '</div>' + ytdLine(view) + '<div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'page:events', 'View events and attendance') +
+      card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(null) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      '</div><div class="chart-grid">' + gainsCard(view) +
+      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', '', '') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', '', '') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
+  function numberBlock(text, tone) {
+    return '<p class="kpi-num tone-' + tone + '">' + text + '</p>';
+  }
+
   function membership(view) {
-    return ytdLine(view) + '<div class="detail-grid">' +
-      card('Active member businesses', 'Members', headline(String(view.members.value), 'flat', 'big-members', 'members', '') + '<p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>' + priors(view.members), ' card-members', 'members', 'View the member list') +
-      card('New members', 'New Members', headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers', '') + priors(view.newMembers), '', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes', '') + '<p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>' + priors(view.net), '', 'changes', 'View membership change') +
+    return '<div class="detail-grid">' +
+      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone) + periodTag(null) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone) + periodTag(null) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
       gainsCard(view) + '</div>';
   }
 
+  function noShowCard(view) {
+    var metric = view.noShows || { noShows: 0, signups: 0, pct: 0, tag: '', parts: null, ready: false, limited: false };
+    if (!metric.ready) {
+      return card('No-shows', 'No-shows', '<p class="period-tag">Sign-up status is not in this feed yet.</p>', ' card-noshow kpi-noshow', '', '');
+    }
+    var tag = '<p class="period-tag">of ' + metric.signups + ' sign-ups · ' + metric.pct + '%</p>';
+    return card('No-shows', 'No-shows',
+      '<p class="kpi-num">' + metric.noShows + '</p>' + tag + (metric.parts ? priors(metric) : '') +
+      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
+      ' card-noshow kpi-noshow', 'events', 'View the event list');
+  }
+
+  function shortNewerLabel(label) {
+    var match = String(label || '').match(/(\d{4})\s*[\u2013-]\s*(\d{4})/);
+    if (!match) return 'Joined 2022\u201325';
+    return 'Joined ' + match[1] + '\u2013' + match[2].slice(2);
+  }
+
+  function shortLongerLabel(label) {
+    var match = String(label || '').match(/(\d{4})/);
+    if (!match) return 'Joined 2021 or earlier';
+    return 'Joined ' + match[1] + ' or earlier';
+  }
+
+  function lapseChart(bands) {
+    var rows = bands && bands.length ? bands : [];
+    var w = 420;
+    var h = 150;
+    var max = 1;
+    rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
+    var n = rows.length || 1;
+    var gap = 28;
+    var bw = Math.max(22, Math.min(54, (w - 24 - gap * (n - 1)) / n));
+    var total = n * bw + (n - 1) * gap;
+    var x0 = (w - total) / 2;
+    var base = 124;
+    var plot = 78;
+    var parts = ['<line x1="8" y1="' + base + '" x2="' + (w - 8) + '" y2="' + base + '" stroke="#d5dee2"/>'];
+    rows.forEach(function (row, index) {
+      var lapsed = row.lapsed || 0;
+      var members = row.members || 0;
+      var pct = members ? Math.round((lapsed / members) * 100) : 0;
+      var height = (lapsed / max) * plot;
+      var barH = Math.max(height, lapsed ? 0 : 3);
+      var x = x0 + index * (bw + gap);
+      var y = base - barH;
+      var color = lapsed ? '#D01F25' : '#7D949C';
+      var cx = (x + bw / 2).toFixed(1);
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ' ' + pct + '%</title></rect>');
+      var labelY = Math.min(y - 6, base - 18);
+      parts.push('<text x="' + cx + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '<tspan font-size="10" font-weight="650" fill="#3d4c50"> ' + pct + '%</tspan></text>');
+      parts.push('<text x="' + cx + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
+  }
+
+  function renewalCard(view) {
+    var risk = view.renewalRisk;
+    if (!risk) {
+      return card('Renewal risk', 'Renewal risk', '<p class="period-tag">These totals are not in this feed yet.</p>', ' card-renewal kpi-renewal', '', '');
+    }
+    var active = view.members && view.members.value != null ? view.members.value : risk.cohort;
+    var pct = active ? Math.round((risk.zeroAttendance / active) * 100) : 0;
+    var tenure = risk.byTenure || {};
+    var unknown = tenure.unknown || 0;
+    var thisYear = tenure.thisYear || 0;
+    var other = unknown + thisYear;
+    var cycle = 0;
+    (risk.lapseByBand || []).forEach(function (row) { cycle += row.members || 0; });
+    var parts = '<div class="pr">' +
+      '<div><div class="pl">' + escapeHtml(shortNewerLabel(risk.newerLabel)) + '</div><div class="pv is-risk">' + (tenure.newer || 0) + '</div></div>' +
+      '<div><div class="pl">' + escapeHtml(shortLongerLabel(risk.longerLabel)) + '</div><div class="pv">' + (tenure.longer || 0) + '</div></div>' +
+      '<div><div class="pl">Other</div><div class="pv">' + other + '</div></div></div>';
+    var tip = ' Other is ' + unknown + ' with no join date and ' + thisYear + ' who joined this fiscal year. Last renewal year: ' + cycle + ' members, by events attended.';
+    return card('Renewal risk', 'Renewal risk',
+      '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
+      '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
+      parts +
+      '<div class="chart-slot">' + lapseChart(risk.lapseByBand) + '</div>',
+      ' card-renewal kpi-renewal', 'members', 'View the member list', tip);
+  }
+
   function eventsPage(view) {
-    return ytdLine(view) + '<div class="detail-grid">' +
-      card('Events held', 'Events Held', headline(String(view.events.value), view.events.tone, 'big-mid', 'events', '') + '<p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>' + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', '') + '<p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>' + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'attendance', 'View the visit list') +
+    return '<div class="detail-grid">' +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      noShowCard(view) +
+      renewalCard(view) +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
       '</div>';
   }
@@ -868,9 +975,12 @@ function stepControl(step, enabled, compact, attrs) {
       ? '<button type="button" class="filters-btn" data-filters aria-expanded="' + (filtersOpen ? 'true' : 'false') + '" aria-controls="filters">Filters' + (view.filtersActive ? ' <span class="tick">✓</span>' : '') + '</button>'
       : '';
     var body = page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view));
-    var scope = page === 'membership' ? '<p class="scope-note">Event type, company, and attendee do not change these membership numbers.</p>' : '';
+    var tipExtra = '';
+    if (view.ytdNote) tipExtra += ' ' + view.ytdNote;
+    if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers.';
+    var contextTip = tipExtra ? hint('', view.ytdNote ? 'Year to date' : 'Membership filters', true, tipExtra) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
-      '<p class="context-line">' + escapeHtml(view.contextLine || '') + '</p>' + scope + activeChips(view) + filterBtn +
+      '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + activeChips(view) + filterBtn +
       '<div class="body">' + side + '<div class="main" id="content">' + body + '</div></div></div>' +
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }

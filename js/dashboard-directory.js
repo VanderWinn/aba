@@ -380,6 +380,7 @@
   }
 
   var narrow = {
+    keeps: identityOk,
     countEvents: function (start, end, eventTypes, audience, view) {
       var ids = {};
       attendanceRows(view.directory, start, end, eventTypes, audience, view).forEach(function (row) {

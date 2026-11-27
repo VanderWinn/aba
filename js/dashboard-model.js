@@ -19,7 +19,7 @@
     'Board minutes': 'Opens recent board meeting minutes.',
     'Committee roster': 'Opens the committee roster.',
     'More': 'Opens any remaining documents kept in this portal.',
-    'Event type': 'Limits every card, chart, and list to Lunch & Learn, Ribbon Cutting, or Happy Hour. Membership rows use the event type stored on them. All events shows every member. The counts are how many events of that kind fall in the dates you selected.',
+    'Event type': 'Limits the event numbers on this page to Lunch & Learn, Ribbon Cutting, or Happy Hour. None checked means all types. The counts beside each type are events in the selected date range.',
     'All': 'Shows Lunch & Learn, Ribbon Cutting, and Happy Hour together.',
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
@@ -39,10 +39,14 @@
     'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
     'Events Held': 'How many events took place in the date range. Event type, company, and attendee change this number. The counts beside the event types are events in this same date range.',
     'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, and attendee change this number.',
+    'No-shows': 'People who signed up and were marked no-show. The count is no-shows of sign-ups. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. Company and attendee filters apply when each sign-up has a status. Event totals without a status cannot be split by company.',
+    'Renewal risk': 'Based on one renewal cycle (6/30/2026 deactivations); attendance mostly Lunch & Learn; shows a pattern, not a cause.',
+    'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
+    'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers on this view.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
-    'Company': 'Limits every figure to attendance and membership for the member companies you select. Companies combine with OR. Guests from other companies stay out of this list.',
-    'Attendee': 'Limits every figure to the attendees you select. The list shows attendees at the selected companies, or everyone when no company is selected. Attendees combine with OR.',
+    'Company': 'Limits event visits on this page to the companies you select. Companies combine with OR. It does not change membership totals.',
+    'Attendee': 'Limits event visits on this page to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
     'Last month / quarter / year': 'On Events Held and Attendee Count, last month and last quarter are the same length of time shifted back one month or one quarter, and last year is the same dates in the prior fiscal year. On the business-member cards, the windows follow fiscal boundaries instead.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
@@ -411,7 +415,7 @@
     return picked;
   }
 
-  var YEAR_COLORS = ['#3F768B', '#24785F', '#3D5A80', '#8C6D3F', '#5C4D7A'];
+  var YEAR_COLORS = ['#3F768B', '#C4841D', '#3D5A80', '#6B4C7A', '#24785F'];
 
   function yearSlot(year, chosen) {
     var fromEnd = chosen.length - 1 - chosen.indexOf(Number(year));
@@ -964,6 +968,56 @@
     function flowSpan(start, end) {
       return flowBetween(data, start, end, 'Member', '');
     }
+    function foldedStatus(status) {
+      return String(status || '').toLowerCase().replace(/[\s-]+/g, '_');
+    }
+    function statusIsNoShow(status) {
+      var text = foldedStatus(status);
+      return text === 'no_show' || text === 'noshow';
+    }
+    function statusIsSignUp(status) {
+      var text = foldedStatus(status);
+      if (!text || text.indexOf('cancel') === 0) return false;
+      return text === 'attended' || text === 'registered' || statusIsNoShow(text);
+    }
+    var signupByEvent = {};
+    (data.signups || []).forEach(function (row) {
+      var id = String(row.eventId || '');
+      if (!id) return;
+      signupByEvent[id] = { signups: Number(row.signups) || 0, noShows: Number(row.noShows) || 0 };
+    });
+    var statusRows = directory && directory.attendance ? directory.attendance : [];
+    var rowsHaveStatus = statusRows.some(function (row) { return row && row.status; });
+    function signupWindow(start, end) {
+      var booked = 0;
+      var missed = 0;
+      if (rowsHaveStatus) {
+        statusRows.forEach(function (row) {
+          if (!row.date || row.date < start || row.date > end) return;
+          if (eventTypes.length && eventTypes.indexOf(row.eventType) === -1) return;
+          if (pieAudience && row.audience && row.audience !== pieAudience) return;
+          if (view.companies.length || view.people.length) {
+            if (directory.narrow && directory.narrow.keeps && !directory.narrow.keeps(row, view)) return;
+          }
+          if (!statusIsSignUp(row.status)) return;
+          booked += 1;
+          if (statusIsNoShow(row.status)) missed += 1;
+        });
+      } else {
+        eventsIn(data, start, end, eventTypes, pieAudience, attendance).forEach(function (event) {
+          var row = signupByEvent[event.id];
+          if (!row) return;
+          booked += row.signups;
+          missed += row.noShows;
+        });
+      }
+      return {
+        signups: booked,
+        noShows: missed,
+        pct: booked ? Math.round((missed / booked) * 100) : 0,
+        limited: !rowsHaveStatus && !!(view.companies.length || view.people.length)
+      };
+    }
     var chosen = view.chosenYears || [view.year];
     var yearBars = (view.slices || []).map(function (slice) {
       var flow = flowSpan(slice.start, slice.end);
@@ -982,6 +1036,8 @@
         net: flow.net,
         events: countEvents(slice.start, slice.end),
         attendance: sumAttendance(slice.start, slice.end),
+        noShows: signupWindow(slice.start, slice.end).noShows,
+        signups: signupWindow(slice.start, slice.end).signups,
         members: memberStock(slice.start, slice.end),
         newMembers: flow.joins,
         memberAtt: sumAttendance(slice.start, slice.end, 'Member'),
@@ -1039,6 +1095,9 @@
     var attendanceSeries = compareYears ? yearBars.map(function (bar) { return bar.attendance; }) : lineBuckets.map(function (bucket) {
       return sumAttendance(bucket.start, bucket.end);
     });
+    var noShowSeries = compareYears ? yearBars.map(function (bar) { return bar.noShows; }) : lineBuckets.map(function (bucket) {
+      return signupWindow(bucket.start, bucket.end).noShows;
+    });
     var attendanceLastYear = compareYears ? [] : lineBuckets.map(function (bucket) {
       var shifted = priorYearRange(bucket.start, bucket.end);
       return sumAttendance(shifted.start, shifted.end);
@@ -1082,6 +1141,8 @@
             attendance: span ? sumAttendance(span.start, span.end, '') : 0,
             joins: flow.joins,
             losses: flow.losses,
+            noShows: span ? signupWindow(span.start, span.end).noShows : 0,
+            signups: span ? signupWindow(span.start, span.end).signups : 0,
             skipped: !span
           };
         });
@@ -1176,12 +1237,25 @@
     var ytdNote = partialBar
       ? partialBar.label + ' runs through ' + formatDate(partialBar.end) + '. It is compared with ' + formatDate(partialBar.samePoint.start) + '\u2013' + formatDate(partialBar.samePoint.end) + ', not a full fiscal year.'
       : '';
-    membersMetric.caption = membersMetric.value + ' active member businesses as of ' + formatDate(view.range.end);
-    var netWords = (netMetric.value > 0 ? '+' : netMetric.value < 0 ? '\u2212' : '') + Math.abs(netMetric.value);
-    netMetric.caption = netWords + ' over ' + rangeTitle.replace(' year to date', '').trim();
-    eventsMetric.caption = eventsMetric.value + (eventsMetric.value === 1 ? ' event in ' : ' events in ') + rangeTitle;
-    attendanceMetric.caption = attendanceMetric.value + (attendanceMetric.value === 1 ? ' visit in ' : ' visits in ') + rangeTitle;
-    attendanceMetric.note = 'Counts visits, not unique people. One person at two events counts twice.';
+    var periodTag = rangeTitle;
+    membersMetric.tag = 'as of ' + formatDate(view.range.end);
+    netMetric.tag = periodTag;
+    eventsMetric.tag = periodTag;
+    attendanceMetric.tag = periodTag;
+    var noshowRoll = signupWindow(view.range.start, view.range.end);
+    var noshowParts = yearBars.length > 1 ? yearBars.map(function (bar) {
+      var pct = bar.signups ? Math.round((bar.noShows / bar.signups) * 100) : 0;
+      return { label: bar.label, value: bar.noShows + ' of ' + bar.signups, pct: pct };
+    }) : null;
+    var noShowsMetric = {
+      noShows: noshowRoll.noShows,
+      signups: noshowRoll.signups,
+      pct: noshowRoll.pct,
+      limited: noshowRoll.limited,
+      tag: periodTag,
+      parts: noshowParts,
+      ready: noshowRoll.signups > 0 || rowsHaveStatus || !!(data.signups && data.signups.length)
+    };
 
     return {
       example: data.example === true,
@@ -1227,6 +1301,9 @@
       attendance: attendanceMetric,
       attendanceSeries: attendanceSeries,
       attendanceLastYear: attendanceLastYear,
+      noShows: noShowsMetric,
+      noShowSeries: noShowSeries,
+      renewalRisk: data.renewalRisk || null,
       pie: {
         members: pieMembers,
         guests: pieGuests,
