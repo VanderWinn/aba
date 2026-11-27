@@ -11,7 +11,7 @@
   var source = null;
   var directory = null;
   var documents = { extras: [] };
-  var ui = { openMenu: '', companyFilter: '', personFilter: '', drill: null };
+  var ui = { openMenu: '', companyFilter: '', personFilter: '', drill: null, exportOpen: false };
   var mobileQuery = window.matchMedia('(max-width: 800px)');
 
   document.addEventListener('DOMContentLoaded', boot);
@@ -23,6 +23,10 @@
         ui.openMenu = '';
         paint();
       }
+    }
+    if (ui && ui.exportOpen && !event.target.closest('.export-menu')) {
+      ui.exportOpen = false;
+      paint();
     }
   });
 
@@ -155,6 +159,7 @@
       var pack = window.ABADirectory.drill(directory, ui.drill.kind, view);
       pack.shown = window.ABADirectory.queryRows(pack.rows, pack.columns, ui.drill.q, ui.drill.sort, ui.drill.dir);
       ui.drill.pack = pack;
+      ui.drill.exportOpen = !!ui.exportOpen;
       view.drill = ui.drill;
     }
     var dashRoot = document.getElementById('dash');
@@ -264,6 +269,11 @@
     }
     var exp = event.target.closest('[data-export]');
     if (exp && ui.drill) {
+      ui.exportOpen = false;
+      var exportPop = document.getElementById('export-menu');
+      var exportToggle = document.querySelector('[data-export-toggle]');
+      if (exportPop) exportPop.hidden = true;
+      if (exportToggle) exportToggle.setAttribute('aria-expanded', 'false');
       exportShown(exp.getAttribute('data-export'));
       return;
     }
@@ -275,7 +285,20 @@
     }
     if (event.target.closest('[data-drill-close]')) {
       ui.drill = null;
+      ui.exportOpen = false;
       paint();
+      return;
+    }
+    if (event.target.closest('[data-export-toggle]')) {
+      ui.exportOpen = !ui.exportOpen;
+      var pop = document.getElementById('export-menu');
+      var toggle = document.querySelector('[data-export-toggle]');
+      if (pop) pop.hidden = !ui.exportOpen;
+      if (toggle) toggle.setAttribute('aria-expanded', ui.exportOpen ? 'true' : 'false');
+      if (ui.exportOpen) {
+        var firstItem = document.querySelector('.export-pop [data-export]');
+        if (firstItem) firstItem.focus();
+      }
       return;
     }
     var sort = event.target.closest('[data-sort]');
@@ -419,8 +442,12 @@
     return 'aba-' + slug + '-' + day + '.' + ext;
   }
 
+  function oneLine(value) {
+    return String(value == null ? '' : value).replace(/\r\n|\r|\n/g, ' ');
+  }
+
   function csvField(value) {
-    var text = value == null ? '' : String(value);
+    var text = oneLine(value);
     if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
     return text;
   }
@@ -444,8 +471,7 @@
     var headers = columns.map(function (column) { return column.label; });
     var data = rows.map(function (row) {
       return columns.map(function (column) {
-        var value = row[column.key];
-        return value == null ? '' : value;
+        return oneLine(row[column.key]);
       });
     });
     var name = exportName(pack.title, kind === 'csv' ? 'csv' : 'xlsx');
@@ -462,12 +488,17 @@
         var size = String(row[index] == null ? '' : row[index]).length;
         if (size > width) width = size;
       });
-      return { wch: Math.min(48, Math.max(10, width + 2)) };
+      return { wch: Math.max(10, width + 2) };
     });
+    var range = window.XLSX.utils.decode_range(sheet['!ref']);
+    var rowIndex;
     var column;
-    for (column = 0; column < headers.length; column++) {
-      var cell = sheet[window.XLSX.utils.encode_cell({ r: 0, c: column })];
-      if (cell) cell.s = { font: { bold: true } };
+    for (rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
+      for (column = range.s.c; column <= range.e.c; column++) {
+        var cell = sheet[window.XLSX.utils.encode_cell({ r: rowIndex, c: column })];
+        if (!cell) continue;
+        cell.s = { font: { bold: rowIndex === 0 }, alignment: { wrapText: false } };
+      }
     }
     var book = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(book, sheet, 'Records');
@@ -478,6 +509,17 @@
     var target = event.target;
     if (!target) return;
     var hit = target.closest && (target.closest('.filter-hit') || (target.getAttribute && (target.hasAttribute('data-type') || target.hasAttribute('data-business-type') || target.hasAttribute('data-audience')) ? target : null));
+    if (event.key === 'Escape' && ui.exportOpen) {
+      ui.exportOpen = false;
+      var exportPop = document.getElementById('export-menu');
+      var exportToggle = document.querySelector('[data-export-toggle]');
+      if (exportPop) exportPop.hidden = true;
+      if (exportToggle) {
+        exportToggle.setAttribute('aria-expanded', 'false');
+        exportToggle.focus();
+      }
+      return;
+    }
     if (hit && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       if (hit.hasAttribute('data-type')) update({ type: 'eventType', eventType: hit.getAttribute('data-type') });

@@ -1187,8 +1187,10 @@ function stepControl(step, enabled, compact, attrs) {
     return '<div class="drill-back" data-drill-close></div><section class="drill" role="dialog" aria-label="' + escapeHtml(pack.title) + '">' +
       '<header class="drill-bar"><button type="button" class="drill-back-btn" data-drill-close>Back</button><h2>' + escapeHtml(pack.title) + '</h2>' + badge + '</header>' +
       '<div class="drill-tools"><input data-drill-search value="' + escapeHtml(drill.q || '') + '" placeholder="Search these records" aria-label="Search these records">' +
-      '<button type="button" class="drill-export" data-export="csv">CSV</button>' +
-      '<button type="button" class="drill-export" data-export="xlsx">Excel</button>' +
+      '<div class="export-menu"><button type="button" class="drill-export" data-export-toggle aria-haspopup="menu" aria-expanded="' + (drill.exportOpen ? 'true' : 'false') + '" aria-controls="export-menu">Export</button>' +
+      '<div class="export-pop" id="export-menu" role="menu"' + (drill.exportOpen ? '' : ' hidden') + '>' +
+      '<button type="button" role="menuitem" data-export="csv">CSV</button>' +
+      '<button type="button" role="menuitem" data-export="xlsx">Excel</button></div></div>' +
       '<p class="record-count">' + count + ' records</p></div>' +
       '<div class="drill-scroll"><table class="drill-table"><thead><tr>' + heads + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
