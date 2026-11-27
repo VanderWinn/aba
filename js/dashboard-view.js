@@ -123,7 +123,6 @@
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
     var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
-    yearLegend(parts, series, true);
     series.forEach(function (bar, index) {
       var x = x0 + index * (bw + gap);
       var up = (bar.joins || 0) * sc;
@@ -150,7 +149,6 @@
     var base = 124;
     var plot = 78;
     var parts = [];
-    yearLegend(parts, bars, false);
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
@@ -174,7 +172,6 @@
     var slot = (w - 16) / groups.length;
     var bw = Math.max(6, Math.min(16, (slot - 10) / sample.length));
     var parts = [];
-    yearLegend(parts, sample, key === 'joins');
     groups.forEach(function (group, index) {
       var left = 8 + index * slot + (slot - bw * group.bars.length) / 2;
       group.bars.forEach(function (bar, barIndex) {
@@ -667,7 +664,7 @@ function stepControl(step, enabled, compact, attrs) {
     var h = n > 6 ? (compact ? 280 : 320) : 230;
     var padX = 28;
     var yZero = h - 28;
-    var plotTop = 72;
+    var plotTop = 36;
     var plotH = yZero - plotTop;
     var max = 1;
     groups.forEach(function (group) {
@@ -680,7 +677,6 @@ function stepControl(step, enabled, compact, attrs) {
     function xx(i) { return padX + (i + 0.5) * cw; }
     function yy(v) { return yZero - ((v || 0) / ymax) * plotH; }
     var parts = ['<line x1="' + padX + '" y1="' + yZero + '" x2="' + (w - 12) + '" y2="' + yZero + '" stroke="#d5dee2"/>'];
-    yearLegend(parts, sample, false);
     sample.forEach(function (seriesBar, seriesIndex) {
       var segment = [];
       var lastIndex = -1;
@@ -749,7 +745,6 @@ function stepControl(step, enabled, compact, attrs) {
     var gap = 3;
     var bw = Math.max(8, Math.min(16, (slot - 12 - gap * (seriesCount - 1)) / seriesCount));
     var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
-    yearLegend(parts, sample, true);
     groups.forEach(function (group, index) {
       var totalW = seriesCount * bw + (seriesCount - 1) * gap;
       var left = 10 + index * slot + (slot - totalW) / 2;
@@ -804,9 +799,26 @@ function stepControl(step, enabled, compact, attrs) {
     return metric && metric.tag ? '<p class="period-tag">' + escapeHtml(metric.tag) + '</p>' : '';
   }
 
+  function legendItems(view) {
+    if (view.group !== 'year' && view.groups && view.groups[0] && view.groups[0].bars && view.groups[0].bars.length) {
+      return view.groups[0].bars;
+    }
+    return view.yearBars || [];
+  }
+
+  function chartKey(items, gainedLost) {
+    if (!items || !items.length) return '';
+    var lead = gainedLost
+      ? '<span class="key-item"><i class="key-gained"></i>Gained</span><span class="key-item"><i class="key-lost"></i>Lost</span>'
+      : '';
+    return '<div class="chart-key">' + lead + items.map(function (item) {
+      return '<span class="key-item"><i style="background:' + (item.color || '#3F768B') + '"></i>' + escapeHtml(item.label) + '</span>';
+    }).join('') + '</div>';
+  }
+
   function gainsCard(view) {
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + gainsChart(view) + '</div>',
+      '<div class="chart-slot">' + gainsChart(view) + '</div>' + chartKey(legendItems(view), true),
       ' card-gains', 'changes', 'View the member list');
   }
 
@@ -814,12 +826,12 @@ function stepControl(step, enabled, compact, attrs) {
     var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
     return '<div class="kpi-row">' +
       card('Active member businesses', 'Members', '<p class="kpi-value">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(view.net) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p>' + periodTag(view.events) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p>' + periodTag(view.attendance) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + netTone + '">' + signed(view.net.value) + '</p>' + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p>' + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p>' + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', '', '') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', '', '') +
+      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', '', '') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', '', '') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
@@ -831,8 +843,8 @@ function stepControl(step, enabled, compact, attrs) {
   function membership(view) {
     return '<div class="detail-grid">' +
       card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat', 'big-members') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
-      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone, 'big-mid') + periodTag(view.newMembers) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone, 'big-mid') + periodTag(view.net) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone, 'big-mid') + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone, 'big-mid') + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
       gainsCard(view) + '</div>';
   }
 
@@ -842,17 +854,17 @@ function stepControl(step, enabled, compact, attrs) {
       return card('No-shows', 'No-shows', '<p class="period-tag">Sign-up status is not in this feed yet.</p>', ' card-noshow kpi-noshow', '', '');
     }
     var count = metric.noShows + ' <span class="kpi-of">of ' + metric.signups + ' sign-ups</span>';
-    var aside = '<p class="period-tag"><span class="kpi-pct">' + metric.pct + '%</span> of sign-ups</p>' + periodTag(metric);
+    var aside = '<p class="period-tag"><span class="kpi-pct">' + metric.pct + '%</span> of sign-ups</p>';
     return card('No-shows', 'No-shows',
       '<p class="kpi-value">' + count + '</p>' + aside + (metric.parts ? priors(metric) : '') +
-      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>',
+      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
 
   function eventsPage(view) {
     return '<div class="detail-grid">' +
-      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone, 'big-mid') + periodTag(view.events) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone, 'big-mid') + periodTag(view.attendance) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone, 'big-mid') + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone, 'big-mid') + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
       '</div>';
