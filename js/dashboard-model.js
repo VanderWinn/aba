@@ -44,6 +44,7 @@
     'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
     'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers on this view.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
+    'Visits and no-shows': 'Each percentage is that group\u2019s share of members, guests, and no-shows together: everyone who signed up and was expected. Choosing members or guests limits the event numbers on this page.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
     'Company': 'Limits event visits on this page to the companies you select. Companies combine with OR. It does not change membership totals.',
     'Attendee': 'Limits event visits on this page to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',

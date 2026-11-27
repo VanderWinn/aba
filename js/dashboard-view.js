@@ -579,42 +579,50 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function visitSplit(view, w, h) {
-    var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
+    var pie = view.pie || { members: 0, guests: 0 };
     var members = pie.members || 0;
     var guests = pie.guests || 0;
-    var total = members + guests;
-    var memberPct = total ? pie.memberPct : 0;
-    var guestPct = total ? pie.guestPct : 0;
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var missed = showMissed ? view.noShows.noShows : 0;
+    var total = members + guests + missed;
+    function share(count) { return total ? Math.round((count / total) * 100) : 0; }
+    var memberPct = share(members);
+    var guestPct = share(guests);
+    var missedPct = showMissed ? Math.max(0, 100 - memberPct - guestPct) : 0;
+    if (!showMissed && total) guestPct = Math.max(0, 100 - memberPct);
     w = w || 420;
     h = h || 160;
-    var barH = Math.max(40, Math.min(56, h - 8));
+    var barH = Math.max(40, Math.min(56, h - 28));
     var y = Math.round((h - barH) / 2);
-    var memberW = total ? (members / total) * w : w / 2;
-    var guestW = Math.max(0, w - memberW);
+    var rows = [
+      { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%' }
+    ];
+    rows.push({ audience: 'Guest', count: guests, pct: guestPct, fill: '#7D949C', ink: '#243033', text: 'Guests ' + guests + ' \u00b7 ' + guestPct + '%' });
+    if (showMissed) {
+      rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%' });
+    }
     var parts = [];
-    function segment(audience, x, width, fill, ink, text) {
+    var x = 0;
+    rows.forEach(function (row) {
+      var width = total ? (row.count / total) * w : w / rows.length;
       if (width <= 0) return;
-      var on = view.audience === audience;
-      parts.push('<g data-audience="' + audience + '" style="cursor:pointer">' +
-        '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + fill + '"' +
-        (on ? ' stroke="#243033" stroke-width="3"' : '') + '>' +
-        '<title>' + escapeHtml(text) + (on ? ', selected' : '') + '</title></rect>');
-      if (width >= 108) {
-        parts.push('<text x="' + (x + width / 2).toFixed(1) + '" y="' + (y + barH / 2 + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + ink + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(text) + '</text>');
-      }
-      parts.push('</g>');
-    }
-    var memberText = 'Members ' + members + ' \u00b7 ' + memberPct + '%';
-    var guestText = 'Guests ' + guests + ' \u00b7 ' + guestPct + '%';
-    segment('Member', 0, memberW, '#3F768B', '#fff', memberText);
-    segment('Guest', memberW, guestW, '#7D949C', '#243033', guestText);
-    if (memberW < 108) {
-      parts.push('<text x="' + Math.max(4, memberW / 2).toFixed(1) + '" y="' + (y - 8) + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(memberText) + '</text>');
-    }
-    if (guestW < 108) {
-      parts.push('<text x="' + (w - 4) + '" y="' + (y - 8) + '" text-anchor="end" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(guestText) + '</text>');
-    }
-    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(memberText + '. ' + guestText) + '">' + parts.join('') + '</svg>';
+      var need = row.text.length * 7 + 16;
+      var inside = width >= need;
+      var click = row.audience ? ' data-audience="' + row.audience + '" style="cursor:pointer"' : '';
+      var on = row.audience && view.audience === row.audience;
+      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
+        (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
+      var tx = x + width / 2;
+      var ty = inside ? (y + barH / 2 + 4) : (y - 8);
+      var fill = inside ? row.ink : '#243033';
+      var anchor = 'middle';
+      if (!inside && tx < need / 2) { tx = 4; anchor = 'start'; }
+      if (!inside && tx > w - need / 2) { tx = w - 4; anchor = 'end'; }
+      parts.push('<text x="' + tx.toFixed(1) + '" y="' + ty + '" text-anchor="' + anchor + '" font-size="12" font-weight="700" fill="' + fill + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(row.text) + '</text></g>');
+      x += width;
+    });
+    var label = rows.map(function (row) { return row.text; }).join('. ');
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(label) + '">' + parts.join('') + '</svg>';
   }
 
   function visitDonut(view) {
@@ -901,6 +909,8 @@ function stepControl(step, enabled, compact, attrs) {
 
   function overview(view) {
     var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
+    var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
+    var visitTitle = showMissed ? 'Visits and no-shows' : 'Member and guest visits';
     return '<div class="kpi-row">' +
       card('Active member businesses', 'Members', '<p class="kpi-num">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
       card('Net membership change', 'Net Gain', '<p class="kpi-num tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(null) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
@@ -909,7 +919,7 @@ function stepControl(step, enabled, compact, attrs) {
       '</div><div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
-      card('Member and guest visits', 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
