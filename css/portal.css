@@ -25,6 +25,8 @@
 .portal-dashboard > p,
 .portal-gate p { margin: 0 0 0.85rem; color: var(--ink-soft); }
 
+.need-access { margin: 0.2rem 0 0; font-weight: 600; }
+
 .portal-metric {
   border-top: 1px solid var(--line);
   margin-top: 0.9rem;
