@@ -260,8 +260,8 @@
     while (monthIdx <= monthEndIdx && guard < 240) {
       var my = Math.floor(monthIdx / 12);
       var mm = monthIdx % 12 + 1;
-      var letter = LETTERS[mm - 1];
-      if (spanYears && mm === 1) letter = letter + String(my).slice(2);
+      var letter = MONTHS[mm - 1];
+      if (spanYears) letter = letter + ' \u2019' + String(my).slice(2);
       var bucketM = clipBucket(range, iso(my, mm, 1), iso(my, mm, daysInMonth(my, mm)), letter);
       if (bucketM) out.push(bucketM);
       monthIdx += 1;
@@ -1055,9 +1055,9 @@
           span: function (year) { return quarterWindow(year, quarter, view.today); }
         };
       }) : [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6].map(function (month, index) {
-        var letters = ['J', 'A', 'S', 'O', 'N', 'D', 'J', 'F', 'M', 'A', 'M', 'J'];
+        var names = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
         return {
-          label: letters[index],
+          label: names[index],
           span: function (year) {
             var calendarYear = month >= 7 ? year - 1 : year;
             return monthWindow(iso(calendarYear, month, 1).slice(0, 7), view.today);
