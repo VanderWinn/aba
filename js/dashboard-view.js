@@ -578,7 +578,7 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
-  function visitSplit(view, w, h, fit) {
+  function visitSplit(view, w, h) {
     var pie = view.pie || { members: 0, guests: 0 };
     var members = pie.members || 0;
     var guests = pie.guests || 0;
@@ -592,76 +592,45 @@ function stepControl(step, enabled, compact, attrs) {
     if (!showMissed && total) guestPct = Math.max(0, 100 - memberPct);
     w = w || 420;
     h = h || 160;
-    var rows = [
-      { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%' }
-    ];
-    rows.push({ audience: 'Guest', count: guests, pct: guestPct, fill: '#7D949C', ink: '#243033', text: 'Guests ' + guests + ' \u00b7 ' + guestPct + '%' });
-    if (showMissed) {
-      rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%' });
-    }
-    var x = 0;
-    var outside = [];
-    rows.forEach(function (row) {
-      row.width = total ? (row.count / total) * w : w / rows.length;
-      row.x = x;
-      row.need = fit ? row.text.length * 6.6 + 12 : row.text.length * 7 + 16;
-      row.inside = row.width >= row.need;
-      if (row.width > 0 && !row.inside) outside.push(row);
-      x += row.width;
-    });
-    var lanes = 1;
-    if (fit) {
-      outside.forEach(function (row) {
-        var tx = row.x + row.width / 2;
-        var left = tx - row.need / 2;
-        var right = tx + row.need / 2;
-        var anchor = 'middle';
-        if (left < 2) { left = 2; right = left + row.need; tx = 4; anchor = 'start'; }
-        if (right > w - 2) { right = w - 2; left = right - row.need; tx = w - 4; anchor = 'end'; }
-        var lane = 0;
-        var clear = false;
-        while (!clear) {
-          clear = true;
-          outside.forEach(function (other) {
-            if (other === row || other.lane !== lane) return;
-            if (left < other.right + 6 && right > other.left - 6) clear = false;
-          });
-          if (!clear) lane += 1;
-        }
-        row.lane = lane;
-        row.left = left;
-        row.right = right;
-        row.tx = tx;
-        row.anchor = anchor;
-        if (lane + 1 > lanes) lanes = lane + 1;
-      });
-    }
-    var barH = Math.max(40, Math.min(56, h - 28));
+    var barH = 56;
     var y = Math.round((h - barH) / 2);
-    if (fit) {
-      y = 8 + lanes * 16;
-      barH = Math.max(28, h - y - 8);
+    var rows = [
+      { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%', where: 'in' }
+    ];
+    rows.push({ audience: 'Guest', count: guests, pct: guestPct, fill: '#7D949C', ink: '#243033', text: 'Guests ' + guests + ' \u00b7 ' + guestPct + '%', where: 'in' });
+    if (showMissed) {
+      rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%', where: 'above' });
     }
     var parts = [];
+    var x = 0;
     rows.forEach(function (row) {
-      if (row.width <= 0) return;
+      var width = total ? (row.count / total) * w : w / rows.length;
+      if (width <= 0) return;
+      var need = row.text.length * 6.15;
+      var inside = row.where === 'in' && width >= need;
       var click = row.audience ? ' data-audience="' + row.audience + '" style="cursor:pointer"' : '';
       var on = row.audience && view.audience === row.audience;
-      parts.push('<g' + click + '><rect x="' + row.x.toFixed(1) + '" y="' + y + '" width="' + row.width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
+      parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' +
         (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
-      var tx = row.x + row.width / 2;
-      var ty = row.inside ? (y + barH / 2 + 4) : (y - 8);
-      var fill = row.inside ? row.ink : '#243033';
+      var tx = x + width / 2;
+      var ty = y + barH / 2 + 4;
+      var fill = row.ink;
       var anchor = 'middle';
-      if (!row.inside && fit) {
-        tx = row.tx;
-        ty = y - 6 - (row.lane || 0) * 16;
-        anchor = row.anchor || 'middle';
-      } else if (!row.inside) {
-        if (tx < row.need / 2) { tx = 4; anchor = 'start'; }
-        if (tx > w - row.need / 2) { tx = w - 4; anchor = 'end'; }
+      if (!inside) {
+        fill = '#243033';
+        if (row.where === 'above') {
+          ty = y - 8;
+          tx = Math.min(w - 4, x + width);
+          anchor = 'end';
+        } else {
+          ty = y + barH + 16;
+          var half = need / 2;
+          if (tx < half) { tx = 4; anchor = 'start'; }
+          else if (tx > w - half) { tx = w - 4; anchor = 'end'; }
+        }
       }
       parts.push('<text x="' + tx.toFixed(1) + '" y="' + ty + '" text-anchor="' + anchor + '" font-size="12" font-weight="700" fill="' + fill + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(row.text) + '</text></g>');
+      x += width;
     });
     var label = rows.map(function (row) { return row.text; }).join('. ');
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(label) + '">' + parts.join('') + '</svg>';
@@ -1068,7 +1037,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
-      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split" data-bar="fit">' + visitSplit(view, 420, 160, true) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -1133,7 +1102,7 @@ function stepControl(step, enabled, compact, attrs) {
       if (kind === 'gains') svg = gainsChart(view, w, h);
       else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
       else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
-      else if (kind === 'split') svg = visitSplit(view, w, h, host.getAttribute('data-bar') === 'fit');
+      else if (kind === 'split') svg = visitSplit(view, w, h);
       else svg = chartFor(view, kind, w, h);
       host.innerHTML = svg;
     }
