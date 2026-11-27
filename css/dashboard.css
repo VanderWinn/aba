@@ -1076,12 +1076,6 @@ select:focus-visible {
 .card.kpi-renewal .kpi-num { color: #6d470e; }
 .card-renewal .pv.is-risk { color: #7A5410; }
 .card-renewal .pr .pl { white-space: nowrap; }
-.lapse-chart { width: 100%; }
-.lapse-labs { display: flex; width: 100%; align-items: baseline; }
-.lapse-lab { flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap; }
-.lapse-lab .pv { font-size: 18px; line-height: 1.1; }
-.lapse-lab .share { font-size: 13px; font-weight: 650; color: #3d4c50; }
-.lapse-chart .chart { display: block; }
 .detail-link {
   border: 0;
   background: transparent;
@@ -1252,8 +1246,7 @@ select:focus-visible {
   .detail-grid .card-attendance .bodycol,
   .detail-grid .card-noshow .bodycol,
   .detail-grid .card-renewal .bodycol { gap: 16px; }
-  .lapse-lab .pv { font-size: 12px; }
-  .lapse-lab .share { font-size: 11px; }
+  .card-renewal .pr .pl { white-space: normal; min-height: 2.6em; }
   .detail-grid .card-events .chart-slot,
   .detail-grid .card-attendance .chart-slot,
   .detail-grid .card-noshow .chart-slot,
