@@ -1135,6 +1135,67 @@ select:focus-visible {
 .hbar-fill.guest { background: radial-gradient(circle, #fff 1.1px, transparent 1.3px), #7D949C; background-size: 7px 7px; }
 .detail-grid .big-mid { font-size: 48px; }
 .detail-grid .pr, .chart-grid .pr { flex-wrap: wrap; }
+.detail-grid .card-events,
+.detail-grid .card-attendance,
+.detail-grid .card-noshow {
+  height: 100%;
+}
+.detail-grid .card-events .bodycol,
+.detail-grid .card-attendance .bodycol,
+.detail-grid .card-noshow .bodycol {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 20px;
+  min-height: 0;
+}
+.detail-grid .card-events .bodycol > *,
+.detail-grid .card-attendance .bodycol > *,
+.detail-grid .card-noshow .bodycol > * {
+  margin: 0;
+}
+.detail-grid .card-events .big,
+.detail-grid .card-attendance .big,
+.detail-grid .card-noshow .kpi-value {
+  margin: 0;
+  line-height: 1;
+  text-align: center;
+}
+.detail-grid .card-events .pr,
+.detail-grid .card-attendance .pr,
+.detail-grid .card-noshow .pr {
+  gap: 16px;
+  align-items: flex-start;
+}
+.detail-grid .card-events .pl,
+.detail-grid .card-attendance .pl,
+.detail-grid .card-noshow .pl {
+  font-size: 14px;
+  line-height: 1.35;
+  color: #3d4c50;
+}
+.detail-grid .card-events .pv,
+.detail-grid .card-attendance .pv,
+.detail-grid .card-noshow .pv {
+  font-size: 16px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+.detail-grid .card-events .chart-slot,
+.detail-grid .card-attendance .chart-slot,
+.detail-grid .card-noshow .chart-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-bottom: 8px;
+}
+.detail-grid .card-events .chart,
+.detail-grid .card-attendance .chart,
+.detail-grid .card-noshow .chart {
+  width: 100%;
+  height: auto;
+}
 .side .h { color: var(--soft); }
 
 @media (max-width: 1100px) {
@@ -1163,6 +1224,13 @@ select:focus-visible {
   .side.is-open { display: block; width: auto; border-right: 0; padding: 12px 0; }
   .body { display: block; }
   .kpi-row, .chart-grid, .detail-grid { grid-template-columns: 1fr; }
+  .detail-grid .card-events .bodycol,
+  .detail-grid .card-attendance .bodycol,
+  .detail-grid .card-noshow .bodycol { gap: 16px; }
+  .detail-grid .card-events .chart-slot,
+  .detail-grid .card-attendance .chart-slot,
+  .detail-grid .card-noshow .chart-slot { min-height: 0; padding-bottom: 4px; }
+  .card.kpi-noshow .kpi-value { font-size: 28px; white-space: normal; }
   .clear-filters { margin-left: 0; }
   .kpi-value { font-size: 40px; }
 }
