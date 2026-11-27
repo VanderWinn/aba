@@ -578,6 +578,45 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
+  function visitSplit(view, w, h) {
+    var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
+    var members = pie.members || 0;
+    var guests = pie.guests || 0;
+    var total = members + guests;
+    var memberPct = total ? pie.memberPct : 0;
+    var guestPct = total ? pie.guestPct : 0;
+    w = w || 420;
+    h = h || 160;
+    var barH = Math.max(40, Math.min(56, h - 8));
+    var y = Math.round((h - barH) / 2);
+    var memberW = total ? (members / total) * w : w / 2;
+    var guestW = Math.max(0, w - memberW);
+    var parts = [];
+    function segment(audience, x, width, fill, ink, text) {
+      if (width <= 0) return;
+      var on = view.audience === audience;
+      parts.push('<g data-audience="' + audience + '" style="cursor:pointer">' +
+        '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + fill + '"' +
+        (on ? ' stroke="#243033" stroke-width="3"' : '') + '>' +
+        '<title>' + escapeHtml(text) + (on ? ', selected' : '') + '</title></rect>');
+      if (width >= 108) {
+        parts.push('<text x="' + (x + width / 2).toFixed(1) + '" y="' + (y + barH / 2 + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + ink + '" font-family="Montserrat, Raleway, sans-serif" pointer-events="none">' + escapeHtml(text) + '</text>');
+      }
+      parts.push('</g>');
+    }
+    var memberText = 'Members ' + members + ' \u00b7 ' + memberPct + '%';
+    var guestText = 'Guests ' + guests + ' \u00b7 ' + guestPct + '%';
+    segment('Member', 0, memberW, '#3F768B', '#fff', memberText);
+    segment('Guest', memberW, guestW, '#7D949C', '#243033', guestText);
+    if (memberW < 108) {
+      parts.push('<text x="' + Math.max(4, memberW / 2).toFixed(1) + '" y="' + (y - 8) + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(memberText) + '</text>');
+    }
+    if (guestW < 108) {
+      parts.push('<text x="' + (w - 4) + '" y="' + (y - 8) + '" text-anchor="end" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(guestText) + '</text>');
+    }
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(memberText + '. ' + guestText) + '">' + parts.join('') + '</svg>';
+  }
+
   function visitDonut(view) {
     var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
     var members = pie.members || 0;
@@ -870,7 +909,7 @@ function stepControl(step, enabled, compact, attrs) {
       '</div><div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
-      card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
+      card('Member and guest visits', 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
@@ -1039,6 +1078,7 @@ function stepControl(step, enabled, compact, attrs) {
       if (kind === 'gains') svg = gainsChart(view, w, h);
       else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
       else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
+      else if (kind === 'split') svg = visitSplit(view, w, h);
       else svg = chartFor(view, kind, w, h);
       host.innerHTML = svg;
     }
