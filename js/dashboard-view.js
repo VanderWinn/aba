@@ -873,11 +873,13 @@ function stepControl(step, enabled, compact, attrs) {
     h = h || 240;
     var padL = 12;
     var padR = 16;
-    var padTop = 18;
     var monthBand = 18;
-    var base = Math.round((h - monthBand) * 0.56);
-    var upRoom = Math.max(24, base - padTop - 16);
-    var downRoom = Math.max(24, h - monthBand - 16 - base);
+    var plotBottom = h - monthBand;
+    var lineTop = 16;
+    var usable = Math.max(48, plotBottom - lineTop);
+    var lineSpan = Math.max(28, Math.round(usable * 0.3));
+    var lineBot = lineTop + lineSpan;
+    var barCeiling = lineBot + 20;
     var maxBar = 1;
     var minAct = series[0].active;
     var maxAct = series[0].active;
@@ -886,19 +888,22 @@ function stepControl(step, enabled, compact, attrs) {
       if (bucket.active < minAct) minAct = bucket.active;
       if (bucket.active > maxAct) maxAct = bucket.active;
     });
+    var lossLabel = 14;
+    var base = Math.round((barCeiling + plotBottom - lossLabel) / 2);
+    if (base < barCeiling + 18) base = barCeiling + 18;
+    var upRoom = Math.max(12, base - barCeiling);
+    var downRoom = Math.max(12, plotBottom - lossLabel - base);
     var barScale = Math.min(upRoom, downRoom) / maxBar;
     var actPad = Math.max(1, Math.round((maxAct - minAct) * 0.35) || 1);
     var actMin = minAct - actPad;
     var actMax = maxAct + actPad;
     if (actMax <= actMin) actMax = actMin + 1;
-    var lineTop = padTop;
-    var lineBot = Math.max(lineTop + 24, base - 20);
     var slot = (w - padL - padR) / n;
     var gap = 4;
     var bw = Math.max(8, Math.min(22, (slot * 0.62 - gap) / 2));
     var parts = [
       '<line x1="' + padL + '" y1="' + base + '" x2="' + (w - padR) + '" y2="' + base + '" stroke="#9aa6a9"/>',
-      '<line x1="' + (w - 8) + '" y1="' + padTop + '" x2="' + (w - 8) + '" y2="' + (h - monthBand) + '" stroke="#c5d0d4"/>'
+      '<line x1="' + (w - 8) + '" y1="' + lineTop + '" x2="' + (w - 8) + '" y2="' + lineBot + '" stroke="#c5d0d4"/>'
     ];
     function cxOf(index) { return padL + index * slot + slot / 2; }
     function barH(value) { return Math.max(value ? 2 : 0, value * barScale); }
@@ -1064,7 +1069,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone), ' kpi-members', 'newMembers', 'View who joined') +
       card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone), ' kpi-net', 'changes', 'View membership change') +
       card('Member gains and losses', 'Membership combo', '<div class="chart-slot" data-chart="combo">' + membershipCombo(view) + '</div>' + membershipComboKey(), ' card-gains', 'changes', 'View the member list') +
-      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', 'businesses', 'View records') : '') +
+      (businessTypeRows(view).length ? card('Members by business type', 'Members by business type', '<div class="chart-slot" data-chart="types">' + businessTypeBars(view) + '</div>', ' card-types', 'businesses', 'View the member list') : '') +
       '</div>';
   }
 
