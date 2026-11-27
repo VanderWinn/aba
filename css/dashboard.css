@@ -1049,7 +1049,7 @@ select:focus-visible {
 .kpi-row, .chart-grid, .detail-grid { display: grid; column-gap: 12px; row-gap: var(--section-gap); }
 .kpi-row { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
 .chart-grid { grid-template-columns: 1.15fr 1fr; margin-top: 0; }
-.detail-grid { grid-template-columns: 1fr 1fr; margin-top: 0; }
+.detail-grid { grid-template-columns: 1fr 1fr; margin-top: 0; align-items: start; }
 .card-kpi .bodycol, .detail-grid .bodycol, .chart-grid .bodycol { min-height: auto; justify-content: flex-start; align-items: stretch; overflow: visible; gap: 12px; }
 .kpi-num, .kpi-value, .big {
   margin: 0;
@@ -1063,6 +1063,7 @@ select:focus-visible {
 }
 .card-foot { margin-top: auto; padding-top: 8px; }
 .kpi-row .card, .chart-grid .card, .detail-grid .card { height: 100%; }
+.detail-grid .card { height: auto; }
 .kpi-row .period-tag, .detail-grid .period-tag { min-height: 1.35em; }
 .kpi-caption, .period-tag { margin: 0; color: #3d4c50; font-size: var(--tag-size); font-weight: 650; line-height: 1.35; text-align: center; }
 .card.kpi-members { border-top-color: #3F768B; background: #f4f8fa; }
@@ -1144,7 +1145,7 @@ select:focus-visible {
 .detail-grid .card-events,
 .detail-grid .card-attendance,
 .detail-grid .card-noshow, .detail-grid .card-renewal {
-  height: 100%;
+  height: auto;
 }
 .detail-grid .card-events .bodycol,
 .detail-grid .card-attendance .bodycol,

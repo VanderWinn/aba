@@ -197,7 +197,7 @@
     }
     legend = legend || { current: 'This FY', prior: 'Last FY' };
     var w = 520;
-    var h = showLabels ? 240 : 132;
+    var h = showLabels ? 240 : 220;
     var labelValues = !!showLabels || series.length <= 6;
     var maxUp = 1;
     var maxDown = 1;
@@ -215,7 +215,7 @@
     var maxPair = n <= 1 ? 132 : (n <= 4 ? 96 : (showLabels ? 52 : 36));
     var pair = Math.min(cw * 0.78, maxPair);
     var bw = Math.max(4, (pair - gap) / 2);
-    var font = 12;
+    var font = showLabels ? 12 : 18;
     var parts = ['<line x1="6" y1="' + mid + '" x2="' + (w - 6) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
@@ -228,23 +228,14 @@
       if (!labelValues) return;
       var cx = x + bw / 2;
       if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
-      if (losses) parts.push(valueText(cx, mid + down + 12, losses, '600'));
+      if (losses) parts.push(valueText(cx, mid + down + 14, losses, '600'));
     }
-    var legendFont = 'font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif"';
-    var currentWidth = legend.current.length * 6.4;
-    var priorWidth = legend.prior.length * 6.4;
-    var legendRight = w - 8;
-    parts.push('<text x="' + legendRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.current) + '</text>');
-    parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + TEAL + '"/>');
-    var priorRight = legendRight - currentWidth - 26;
-    parts.push('<text x="' + priorRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.prior) + '</text>');
-    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + MUTED + '"/>');
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
       bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS);
       var currentX = slot + bw + gap;
       bars(currentX, bucket.joins || 0, bucket.losses || 0, TEAL, CLAY);
-      var labelSize = n > 16 ? 9 : 12;
+      var labelSize = font;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
       }
@@ -729,8 +720,9 @@ function stepControl(step, enabled, compact, attrs) {
     var n = groups.length || 1;
     var seriesCount = Math.max(sample.length, 1);
     var w = Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
-    var h = compact ? 210 : 230;
-    var mid = Math.round(h * 0.5);
+    var h = compact ? 280 : 230;
+    var labelSize = compact ? 16 : 12;
+    var mid = Math.round(h * 0.52);
     var maxUp = 1;
     var maxDown = 1;
     groups.forEach(function (group) {
@@ -740,7 +732,7 @@ function stepControl(step, enabled, compact, attrs) {
         maxDown = Math.max(maxDown, bar.losses || 0);
       });
     });
-    var sc = Math.min((mid - 40) / maxUp, (h - mid - 32) / maxDown);
+    var sc = Math.min((mid - (compact ? 36 : 28)) / maxUp, (h - mid - (compact ? 44 : 32)) / maxDown);
     var slot = (w - 20) / n;
     var gap = 3;
     var bw = Math.max(8, Math.min(16, (slot - 12 - gap * (seriesCount - 1)) / seriesCount));
@@ -756,9 +748,11 @@ function stepControl(step, enabled, compact, attrs) {
         var tip = escapeHtml(bar.label + ' ' + group.label + ' gained ' + (bar.joins || 0) + ', lost ' + (bar.losses || 0));
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"><title>' + tip + '</title></rect>');
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '" opacity="0.4"><title>' + tip + '</title></rect>');
+        if (bar.joins) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 4).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.joins + '</text>');
+        if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + labelSize).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       });
-      if (axisLabelOn(index, n, compact)) {
-        parts.push('<text x="' + (10 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
+      if (axisLabelOn(index, n, false)) {
+        parts.push('<text x="' + (10 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="' + labelSize + '" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
       }
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains above the line and losses below, by month">' + parts.join('') + '</svg>';
@@ -818,9 +812,16 @@ function stepControl(step, enabled, compact, attrs) {
     }).join('') + '</div>';
   }
 
+  function gainPairKey(view) {
+    var legend = view.gainLegend || { current: 'This FY', prior: 'Last FY' };
+    return '<div class="chart-key"><span class="key-item"><i style="background:' + TEAL + '"></i>' + escapeHtml(legend.current) + '</span>' +
+      '<span class="key-item"><i style="background:' + MUTED + '"></i>' + escapeHtml(legend.prior) + '</span></div>';
+  }
+
   function gainsCard(view) {
+    var legend = view.group === 'year' ? chartKey(legendItems(view)) : gainPairKey(view);
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + gainsChart(view) + '</div>' + chartKey(legendItems(view), true),
+      '<div class="chart-slot">' + gainsChart(view) + '</div>' + legend,
       ' card-gains', 'changes', 'View the member list');
   }
 
@@ -832,8 +833,8 @@ function stepControl(step, enabled, compact, attrs) {
       card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', '', '') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', '', '') +
+      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
