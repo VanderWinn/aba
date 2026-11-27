@@ -475,11 +475,85 @@
     });
   }
 
+  function categoriesOf(row) {
+    var value = row && (row.categories != null ? row.categories : row.category);
+    var parts = Array.isArray(value) ? value : String(value || '').split(';');
+    var out = [];
+    parts.forEach(function (part) {
+      var text = String(part || '').trim().replace(/\s+/g, ' ');
+      if (text && out.indexOf(text) === -1) out.push(text);
+    });
+    return out;
+  }
+
+  function matchesBusinessType(row, selected) {
+    if (!selected || !selected.length) return true;
+    var cats = categoriesOf(row);
+    var i;
+    var j;
+    if (!cats.length) {
+      for (i = 0; i < selected.length; i++) {
+        if (foldLabel(selected[i]) === 'other / not listed') return true;
+      }
+      return false;
+    }
+    for (i = 0; i < cats.length; i++) {
+      for (j = 0; j < selected.length; j++) {
+        if (foldLabel(cats[i]) === foldLabel(selected[j])) return true;
+      }
+    }
+    return false;
+  }
+
+  function memberUniverse(directory, view) {
+    var selected = (view && view.selectedBusinessTypes) || [];
+    if (selected.length && directory.businesses && directory.businesses.length) return directory.businesses;
+    if (directory.membership && directory.membership.length) return directory.membership;
+    return directory.businesses || [];
+  }
+
+  function memberLine(row, status, date) {
+    var cats = categoriesOf(row);
+    return {
+      name: row.name || row.company || '',
+      company: row.company || '',
+      status: status,
+      date: date || '',
+      category: cats.length ? cats.join(', ') : 'Other / not listed'
+    };
+  }
+
+  function memberRecords(directory, view, range, mode) {
+    var selected = (view && view.selectedBusinessTypes) || [];
+    var start = range && range.start || '';
+    var end = range && range.end || '9999-12-31';
+    var rows = [];
+    memberUniverse(directory, view).forEach(function (row) {
+      if (row.audience && row.audience !== 'Member') return;
+      if (!matchesBusinessType(row, selected)) return;
+      var joined = row.joined || '';
+      var lost = row.lost || '';
+      if (mode === 'joined') {
+        if (!joined || joined < start || joined > end) return;
+        rows.push(memberLine(row, 'new', joined));
+        return;
+      }
+      if (mode === 'changes') {
+        if (joined && joined >= start && joined <= end) rows.push(memberLine(row, 'new', joined));
+        if (lost && lost >= start && lost <= end) rows.push(memberLine(row, 'lost', lost));
+        return;
+      }
+      if (joined && joined > end) return;
+      if (lost && lost <= end) return;
+      rows.push(memberLine(row, 'member', joined));
+    });
+    return rows;
+  }
+
   function drill(directory, kind, view) {
     var range = view.measure || view.range;
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
-    var roster = audience || 'Member';
     if (kind === 'attendance' || kind === 'distribution') {
       var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
@@ -498,18 +572,8 @@
     }
     if (kind === 'businesses') {
       var wanted = (view.selectedBusinessTypes || []);
-      var bizRows = [];
-      (directory.businesses || []).forEach(function (row) {
-        var cats = row.categories || [];
-        var match = !wanted.length || (cats.length ? wanted.some(function (name) { return cats.indexOf(name) !== -1; }) : wanted.indexOf('Other / not listed') !== -1);
-        if (!match) return;
-        if (row.lost && range && row.lost <= range.end) return;
-        if (row.joined && range && row.joined > range.end) return;
-        bizRows.push({
-          company: row.company,
-          category: cats.length ? cats.join(', ') : 'Other / not listed',
-          joined: row.joined || ''
-        });
+      var bizRows = memberRecords(directory, view, range, 'active').map(function (row) {
+        return { company: row.company, category: row.category, joined: row.date };
       });
       bizRows.sort(function (a, b) { return a.company < b.company ? -1 : a.company > b.company ? 1 : 0; });
       var bizTitle = wanted.length === 1 ? wanted[0] + ' members' : 'Active member businesses';
@@ -547,30 +611,8 @@
         rows: eventRows
       };
     }
-    var status = kind === 'newMembers' ? 'new' : (kind === 'members' ? 'member' : 'changes');
-    var memberRows = [];
-    (directory.membership || []).forEach(function (person) {
-      if (person.audience !== roster) return;
-      if (!typeOk(person.eventType, eventTypes)) return;
-      if (directory.live) {
-        if (!liveMembershipOk(person, view)) return;
-      } else if (!identityOk(person, view)) return;
-      if (status === 'member') {
-        if (person.joined > range.end) return;
-        if (person.lost && person.lost <= range.end) return;
-        memberRows.push({ name: person.name, company: person.company, status: 'member', date: person.joined });
-      } else if (status === 'new') {
-        if (person.joined < range.start || person.joined > range.end) return;
-        memberRows.push({ name: person.name, company: person.company, status: 'new', date: person.joined });
-      } else {
-        if (person.joined >= range.start && person.joined <= range.end) {
-          memberRows.push({ name: person.name, company: person.company, status: 'new', date: person.joined });
-        }
-        if (person.lost && person.lost >= range.start && person.lost <= range.end) {
-          memberRows.push({ name: person.name, company: person.company, status: 'lost', date: person.lost });
-        }
-      }
-    });
+    var mode = kind === 'newMembers' ? 'joined' : (kind === 'members' ? 'active' : 'changes');
+    var memberRows = memberRecords(directory, view, range, mode);
     var titles = { members: 'Business Members', newMembers: 'New Members', changes: 'Membership records', gains: 'Member Gains and Losses' };
     return {
       title: titles[kind] || 'Membership',
@@ -613,6 +655,67 @@
       var label = labels[key] || key.replace(/_/g, ' ');
       return { key: key, label: label.charAt(0).toUpperCase() + label.slice(1) };
     });
+  }
+
+  function exportFileName(title, ext, day) {
+    var slug = String(title || 'records').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'records';
+    return 'aba-' + slug + '-' + day + '.' + ext;
+  }
+
+  function exportTable(pack) {
+    var columns = (pack && pack.columns) || [];
+    var rows = (pack && (pack.shown || pack.rows)) || [];
+    return {
+      headers: columns.map(function (column) { return column.label; }),
+      rows: rows.map(function (row) {
+        return columns.map(function (column) {
+          return String(row[column.key] == null ? '' : row[column.key]).replace(/\r\n|\r|\n/g, ' ');
+        });
+      })
+    };
+  }
+
+  function csvField(value) {
+    var text = String(value == null ? '' : value).replace(/\r\n|\r|\n/g, ' ');
+    if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function exportCsv(pack) {
+    var table = exportTable(pack);
+    var lines = [table.headers].concat(table.rows).map(function (row) {
+      return row.map(csvField).join(',');
+    });
+    return '\uFEFF' + lines.join('\r\n');
+  }
+
+  function exportWorkbook(pack, XLSX) {
+    if (!XLSX) throw new Error('xlsx');
+    var table = exportTable(pack);
+    var sheet = XLSX.utils.aoa_to_sheet([table.headers].concat(table.rows));
+    sheet['!cols'] = table.headers.map(function (header, index) {
+      var width = String(header).length;
+      table.rows.forEach(function (row) {
+        var size = String(row[index] == null ? '' : row[index]).length;
+        if (size > width) width = size;
+      });
+      return { wch: Math.max(10, width + 2) };
+    });
+    if (sheet['!ref']) {
+      var range = XLSX.utils.decode_range(sheet['!ref']);
+      var rowIndex;
+      var column;
+      for (rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
+        for (column = range.s.c; column <= range.e.c; column++) {
+          var cell = sheet[XLSX.utils.encode_cell({ r: rowIndex, c: column })];
+          if (!cell) continue;
+          cell.s = { font: { bold: rowIndex === 0 }, alignment: { wrapText: false } };
+        }
+      }
+    }
+    var book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, 'Records');
+    return book;
   }
 
   function queryRows(rows, columns, query, sortKey, dir) {
@@ -666,7 +769,7 @@
       var company = String(row.company || '').trim();
       if (!company) return null;
       var deactivated = String(row.status || '').toLowerCase() === 'deactivated';
-      var categories = Array.isArray(row.categories) ? row.categories.filter(Boolean) : [];
+      var categories = categoriesOf(row);
       return {
         name: '',
         company: company,
@@ -674,11 +777,15 @@
         eventType: '',
         categories: categories,
         joined: row.joinDate || row.join_date || '2011-12-31',
-        lost: deactivated ? (row.lostDate || row.lost_date || '2026-06-30') : ''
+        lost: (function () {
+          var dated = row.lostDate || row.lost_date || '';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(String(dated))) return String(dated).slice(0, 10);
+          return deactivated ? '1970-01-01' : '';
+        })()
       };
     }).filter(Boolean);
-    var businesses = membership.filter(function (row) { return !row.lost; }).map(function (row) {
-      return { company: row.company, categories: row.categories || [], joined: row.joined, lost: row.lost };
+    var businesses = membership.map(function (row) {
+      return { company: row.company, categories: row.categories || [], joined: row.joined, lost: row.lost, name: row.name || '' };
     });
     var companies = consolidateLabels(payload.companies || []);
     if (!companies.length) {
@@ -708,6 +815,13 @@
     attendanceRows: attendanceRows,
     withContacts: withContacts,
     drill: drill,
+    memberRecords: memberRecords,
+    categoriesOf: categoriesOf,
+    matchesBusinessType: matchesBusinessType,
+    exportFileName: exportFileName,
+    exportTable: exportTable,
+    exportCsv: exportCsv,
+    exportWorkbook: exportWorkbook,
     queryRows: queryRows,
     narrow: narrow,
     emailOf: emailOf,
