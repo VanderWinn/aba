@@ -584,10 +584,10 @@ function stepControl(step, enabled, compact, attrs) {
     }).join('');
     var allCount = (view.eventCounts && view.eventCounts.all) || 0;
     var allLine = (view.eventTypes || []).length ? '' : '<p class="all-types"><span class="tick">✓</span> All event types, none checked</p>';
-    return '<div class="rail-block"><div class="h">Event type</div><p class="count-note">Counts are events in this date range. All means none checked.</p>' +
+    return '<div class="rail-block"><div class="h">' + hint('Event type', 'Event type') + '</div>' +
       '<p class="range-count">All types in this range <b>' + allCount + '</b></p>' + allLine + rows + '</div>' +
-      '<div class="rail-block"><div class="h">Company</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'company') + '</div>' +
-      '<div class="rail-block"><div class="h">Attendee</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'person') + '</div>';
+      '<div class="rail-block"><div class="h">' + hint('Company', 'Company') + '</div>' + multiMenu(view, 'company') + '</div>' +
+      '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
   function visitDonut(view) {
@@ -770,11 +770,11 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function chartFor(view, kind) {
-    var title = kind === 'events' ? 'Events held' : 'Event visits';
-    var key = kind === 'events' ? 'events' : 'attendance';
+    var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
+    var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
     if (view.group === 'month' || view.group === 'quarter') {
       if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile);
-      var values = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+      var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
       return solidLineSvg(values, labels, title, color, view.mobile);
@@ -785,7 +785,7 @@ function stepControl(step, enabled, compact, attrs) {
       }), title);
     }
     if (view.groups) return groupedSvg(view.groups, key, title);
-    var fallback = kind === 'events' ? (view.eventSeries || []) : (view.attendanceSeries || []);
+    var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile);
   }
@@ -800,37 +800,60 @@ function stepControl(step, enabled, compact, attrs) {
     return view.ytdNote ? '<p class="ytd-note">' + escapeHtml(view.ytdNote) + '</p>' : '';
   }
 
+  function periodTag(metric) {
+    return metric && metric.tag ? '<p class="period-tag">' + escapeHtml(metric.tag) + '</p>' : '';
+  }
+
   function gainsCard(view) {
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<p class="series-key">Solid bars are gained. Pale bars are lost. Each year has its own color.</p><div class="chart-slot">' + gainsChart(view) + '</div>',
+      '<div class="chart-slot">' + gainsChart(view) + '</div>',
       ' card-gains', 'changes', 'View the member list');
   }
 
   function overview(view) {
+    var netTone = view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat';
     return '<div class="kpi-row">' +
-      card('Active member businesses', 'Members', '<p class="kpi-value">' + view.members.value + '</p><p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
-      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + (view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat') + '">' + signed(view.net.value) + '</p><p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
-      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p><p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p><p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
-      '</div>' + ytdLine(view) + '<div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'page:events', 'View events and attendance') +
+      card('Active member businesses', 'Members', '<p class="kpi-value">' + view.members.value + '</p>' + periodTag(view.members) + (view.members.parts ? priors(view.members) : ''), ' card-kpi kpi-members', 'page:membership', 'View membership details') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + netTone + '">' + signed(view.net.value) + '</p>' + periodTag(view.net) + (view.net.parts ? priors(view.net) : ''), ' card-kpi kpi-net', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p>' + periodTag(view.events) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p>' + periodTag(view.attendance) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
+      '</div><div class="chart-grid">' + gainsCard(view) +
+      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', '', '') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', '', '') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
 
+  function numberBlock(text, tone, sizeClass) {
+    return '<p class="big ' + sizeClass + ' tone-' + tone + '">' + text + '</p>';
+  }
+
   function membership(view) {
-    return ytdLine(view) + '<div class="detail-grid">' +
-      card('Active member businesses', 'Members', headline(String(view.members.value), 'flat', 'big-members', 'members', '') + '<p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>' + priors(view.members), ' card-members', 'members', 'View the member list') +
-      card('New members', 'New Members', headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers', '') + priors(view.newMembers), '', 'newMembers', 'View who joined') +
-      card('Net membership change', 'Net Gain', headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes', '') + '<p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>' + priors(view.net), '', 'changes', 'View membership change') +
+    return '<div class="detail-grid">' +
+      card('Active member businesses', 'Members', numberBlock(String(view.members.value), 'flat', 'big-members') + periodTag(view.members) + priors(view.members), ' card-members kpi-members', 'members', 'View the member list') +
+      card('New members', 'New Members', numberBlock(String(view.newMembers.value), view.newMembers.tone, 'big-mid') + periodTag(view.newMembers) + priors(view.newMembers), ' kpi-members', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', numberBlock(signed(view.net.value), view.net.tone, 'big-mid') + periodTag(view.net) + priors(view.net), ' kpi-net', 'changes', 'View membership change') +
       gainsCard(view) + '</div>';
   }
 
+  function noShowCard(view) {
+    var metric = view.noShows || { noShows: 0, signups: 0, pct: 0, tag: '', parts: null, ready: false, limited: false };
+    if (!metric.ready) {
+      return card('No-shows', 'No-shows', '<p class="period-tag">Sign-up status is not in this feed yet.</p>', ' card-noshow kpi-noshow', '', '');
+    }
+    var count = metric.noShows + ' <span class="kpi-of">of ' + metric.signups + ' sign-ups</span>';
+    var aside = '<p class="period-tag"><span class="kpi-pct">' + metric.pct + '%</span> of sign-ups</p>' + periodTag(metric);
+    return card('No-shows', 'No-shows',
+      '<p class="kpi-value">' + count + '</p>' + aside + (metric.parts ? priors(metric) : '') +
+      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>',
+      ' card-noshow kpi-noshow', 'events', 'View the event list');
+  }
+
   function eventsPage(view) {
-    return ytdLine(view) + '<div class="detail-grid">' +
-      card('Events held', 'Events Held', headline(String(view.events.value), view.events.tone, 'big-mid', 'events', '') + '<p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>' + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', '') + '<p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>' + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'attendance', 'View the visit list') +
+    return '<div class="detail-grid">' +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone, 'big-mid') + periodTag(view.events) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone, 'big-mid') + periodTag(view.attendance) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      noShowCard(view) +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
       '</div>';
   }
@@ -868,9 +891,10 @@ function stepControl(step, enabled, compact, attrs) {
       ? '<button type="button" class="filters-btn" data-filters aria-expanded="' + (filtersOpen ? 'true' : 'false') + '" aria-controls="filters">Filters' + (view.filtersActive ? ' <span class="tick">✓</span>' : '') + '</button>'
       : '';
     var body = page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view));
-    var scope = page === 'membership' ? '<p class="scope-note">Event type, company, and attendee do not change these membership numbers.</p>' : '';
+    var ytdTip = view.ytdNote ? hint('', 'Year to date', true, ' ' + view.ytdNote) : '';
+    var scopeTip = page === 'membership' ? hint('', 'Membership filters', true) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
-      '<p class="context-line">' + escapeHtml(view.contextLine || '') + '</p>' + scope + activeChips(view) + filterBtn +
+      '<p class="context-line">' + escapeHtml(view.contextLine || '') + ytdTip + scopeTip + '</p>' + activeChips(view) + filterBtn +
       '<div class="body">' + side + '<div class="main" id="content">' + body + '</div></div></div>' +
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }

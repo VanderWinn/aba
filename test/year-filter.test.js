@@ -37,7 +37,10 @@ test('this fiscal year is the default and a partial year is year to date', () =>
   assert.equal(home.group, 'month');
   assert.equal(home.page, 'overview');
   assert.equal(home.contextLine, 'FY2027 year to date · Grouped by month · All event types');
-  assert.equal(home.members.caption, '412 active member businesses as of Nov 24, 2026');
+  assert.equal(home.members.tag, 'as of Nov 24, 2026');
+  assert.equal(home.events.tag, 'FY2027 year to date');
+  assert.ok(home.noShows.signups > home.noShows.noShows);
+  assert.equal(home.noShows.pct, Math.round((home.noShows.noShows / home.noShows.signups) * 100));
   assert.equal(home.eventCounts.all, home.events.value);
   assert.match(home.ytdNote, /FY2027 YTD runs through Nov 24, 2026/);
   assert.match(home.ytdNote, /Jul 1, 2025/);

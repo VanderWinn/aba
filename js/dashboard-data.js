@@ -69,15 +69,19 @@
     return rows.filter(function (row) { return row.joins || row.losses; });
   }
 
-  function pushEvent(events, attendance, id, date, type, member, guest) {
+  function pushEvent(events, attendance, signups, id, date, type, member, guest) {
     events.push({ id: id, date: date, type: type });
     if (member) attendance.push({ eventId: id, audience: 'Member', count: member });
     if (guest) attendance.push({ eventId: id, audience: 'Guest', count: guest });
+    var attended = (member || 0) + (guest || 0);
+    var noShows = attended ? 1 + (attended % 4) : 0;
+    signups.push({ eventId: id, signups: attended + noShows, noShows: noShows });
   }
 
   function exampleRecords() {
     var events = [];
     var attendance = [];
+    var signups = [];
     var current = [
       ['e01', '2026-01-14', 'Lunch & Learn', 22, 13],
       ['e02', '2026-02-11', 'Ribbon Cutting', 20, 12],
@@ -94,7 +98,7 @@
       ['e13', '2026-11-18', 'Happy Hour', 16, 14]
     ];
     current.forEach(function (row) {
-      pushEvent(events, attendance, row[0], row[1], row[2], row[3], row[4]);
+      pushEvent(events, attendance, signups, row[0], row[1], row[2], row[3], row[4]);
     });
 
     var lastYearAttendance = [38, 36, 35, 40, 37, 39, 42, 36, 38, 41, 33];
@@ -103,14 +107,14 @@
       var guest = total - member;
       var month = index + 1;
       var day = month < 10 ? '0' + month : String(month);
-      pushEvent(events, attendance, 'y2025-' + day, '2025-' + day + '-10', TYPES[index % 3], member, guest);
+      pushEvent(events, attendance, signups, 'y2025-' + day, '2025-' + day + '-10', TYPES[index % 3], member, guest);
     });
-    pushEvent(events, attendance, 'y2025-11-late', '2025-11-27', 'Happy Hour', 43, 26);
-    pushEvent(events, attendance, 'y2025-12', '2025-12-10', 'Lunch & Learn', 36, 22);
+    pushEvent(events, attendance, signups, 'y2025-11-late', '2025-11-27', 'Happy Hour', 43, 26);
+    pushEvent(events, attendance, signups, 'y2025-12', '2025-12-10', 'Lunch & Learn', 36, 22);
     var month;
     for (month = 1; month <= 12; month++) {
       var mm = month < 10 ? '0' + month : String(month);
-      pushEvent(events, attendance, 'y2024-' + mm, '2024-' + mm + '-12', TYPES[(month - 1) % 3], 11, 7);
+      pushEvent(events, attendance, signups, 'y2024-' + mm, '2024-' + mm + '-12', TYPES[(month - 1) % 3], 11, 7);
     }
 
     var memberMonths = [
@@ -152,6 +156,7 @@
       ],
       events: events,
       attendance: attendance,
+      signups: signups,
       changes: changes
     };
   }
@@ -175,6 +180,15 @@
       var count = whole(row.count);
       if (!id || !seen[id] || !audience || !count) return;
       attendance.push({ eventId: id, audience: audience, count: count });
+    });
+    var signups = [];
+    (source.signups || []).forEach(function (row) {
+      var id = String(row.eventId || '').trim();
+      var booked = whole(row.signups);
+      var missed = whole(row.noShows);
+      if (!id || !seen[id] || !booked) return;
+      if (missed > booked) missed = booked;
+      signups.push({ eventId: id, signups: booked, noShows: missed });
     });
     var openings = [];
     (source.openings || []).forEach(function (row) {
@@ -201,6 +215,7 @@
       openings: openings,
       events: events,
       attendance: attendance,
+      signups: signups,
       changes: changes
     };
   }
