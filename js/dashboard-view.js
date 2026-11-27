@@ -758,6 +758,41 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains above the line and losses below, by month">' + parts.join('') + '</svg>';
   }
 
+  function eventTypeBars(view, w, h) {
+    var counts = view.eventCounts || {};
+    var names = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
+    var rows = names.map(function (name) {
+      return { name: name, value: counts[name] || 0 };
+    });
+    rows.sort(function (a, b) {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+    w = w || 420;
+    h = h || 150;
+    var max = 1;
+    rows.forEach(function (row) { if (row.value > max) max = row.value; });
+    var labelW = 112;
+    var countW = 32;
+    var gap = 12;
+    var barH = Math.max(16, Math.min(28, Math.floor((h - gap * (rows.length - 1)) / rows.length) - 4));
+    var totalH = rows.length * barH + (rows.length - 1) * gap;
+    var y0 = Math.max(4, Math.round((h - totalH) / 2));
+    var plotW = Math.max(24, w - labelW - countW - 10);
+    var parts = [];
+    rows.forEach(function (row, index) {
+      var y = y0 + index * (barH + gap);
+      var bw = max ? (row.value / max) * plotW : 0;
+      var cy = y + barH / 2 + 4;
+      parts.push('<text x="' + (labelW - 8) + '" y="' + cy + '" text-anchor="end" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.name) + '</text>');
+      if (bw > 0) {
+        parts.push('<rect x="' + labelW + '" y="' + y + '" width="' + bw.toFixed(1) + '" height="' + barH + '" rx="2" fill="#3F768B"><title>' + escapeHtml(row.name) + ' ' + row.value + '</title></rect>');
+      }
+      parts.push('<text x="' + (labelW + bw + 6).toFixed(1) + '" y="' + cy + '" text-anchor="start" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + row.value + '</text>');
+    });
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Events held by event type">' + parts.join('') + '</svg>';
+  }
+
   function chartFor(view, kind, w, h) {
     var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
     var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
@@ -833,7 +868,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot" data-chart="events">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', 'page:events', 'View events and attendance') +
+      card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
@@ -1003,6 +1038,7 @@ function stepControl(step, enabled, compact, attrs) {
       var svg = '';
       if (kind === 'gains') svg = gainsChart(view, w, h);
       else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
+      else if (kind === 'event-types') svg = eventTypeBars(view, w, h);
       else svg = chartFor(view, kind, w, h);
       host.innerHTML = svg;
     }
