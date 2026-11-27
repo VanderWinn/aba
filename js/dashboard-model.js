@@ -579,6 +579,7 @@
       companies: [],
       people: [],
       audience: '',
+      selectedBusinessTypes: [],
       bucket: ''
     };
   }
@@ -646,6 +647,7 @@
       companies: companies,
       people: people,
       audience: audience,
+      selectedBusinessTypes: listOf(state && state.selectedBusinessTypes),
       bucket: state && state.bucket ? String(state.bucket) : ''
     };
   }
@@ -680,6 +682,7 @@
       companies: listOf(state.companies),
       people: listOf(state.people),
       audience: state.audience || '',
+      selectedBusinessTypes: listOf(state.selectedBusinessTypes),
       bucket: state.bucket || ''
     };
   }
@@ -701,6 +704,7 @@
       cleared.companies = [];
       cleared.people = [];
       cleared.audience = '';
+      cleared.selectedBusinessTypes = [];
       cleared.bucket = '';
       if (action.type === 'reset') return defaultState(data);
       return cleared;
@@ -794,6 +798,19 @@
       next.audience = next.audience === action.audience ? '' : (action.audience || '');
       return next;
     }
+    if (action.type === 'businessType') {
+      var pickedTypes = listOf(next.selectedBusinessTypes);
+      if (!action.businessType) {
+        next.selectedBusinessTypes = [];
+      } else {
+        var bizAt = pickedTypes.indexOf(action.businessType);
+        if (bizAt === -1) pickedTypes.push(action.businessType);
+        else pickedTypes.splice(bizAt, 1);
+        next.selectedBusinessTypes = pickedTypes;
+      }
+      next.bucket = '';
+      return next;
+    }
     if (action.type === 'bucket') {
       next.bucket = next.bucket === action.bucket ? '' : (action.bucket || '');
       return next;
@@ -817,6 +834,7 @@
     if (!hashTypes.length && state.eventType) hashTypes = [state.eventType];
     if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeURIComponent).join(','));
     if (state.audience) parts.push('audience=' + encodeURIComponent(state.audience));
+    if (listOf(state.selectedBusinessTypes).length) parts.push('biz=' + listOf(state.selectedBusinessTypes).map(encodeURIComponent).join(','));
     if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeURIComponent).join(','));
     if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeURIComponent).join(','));
     if (state.bucket) parts.push('bucket=' + encodeURIComponent(state.bucket));
@@ -872,6 +890,9 @@
       try { return decodeURIComponent(part); } catch (err) { return part; }
     }).filter(Boolean);
     if (bag.audience === 'Member' || bag.audience === 'Guest') state.audience = bag.audience;
+    if (bag.biz) state.selectedBusinessTypes = String(bag.biz).split(',').map(function (part) {
+      try { return decodeURIComponent(part); } catch (err) { return part; }
+    }).filter(Boolean);
     if (bag.bucket && /^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(bag.bucket)) state.bucket = bag.bucket;
     return state;
   }
@@ -1262,6 +1283,57 @@
       ready: noshowRoll.signups > 0 || rowsHaveStatus || !!(data.signups && data.signups.length)
     };
 
+    var selectedBiz = listOf(view.selectedBusinessTypes);
+    if (selectedBiz.length && directory && directory.businesses && directory.businesses.length) {
+      function bizOn(row) {
+        var cats = row.categories || [];
+        if (!cats.length) return selectedBiz.indexOf('Other / not listed') !== -1;
+        var i;
+        for (i = 0; i < cats.length; i++) if (selectedBiz.indexOf(cats[i]) !== -1) return true;
+        return false;
+      }
+      function stockBiz(end) {
+        var n = 0;
+        directory.businesses.forEach(function (row) {
+          if (!bizOn(row)) return;
+          if (row.joined && row.joined > end) return;
+          if (row.lost && row.lost <= end) return;
+          n += 1;
+        });
+        return n;
+      }
+      function flowBiz(start, end) {
+        var joinsN = 0;
+        var lossesN = 0;
+        directory.businesses.forEach(function (row) {
+          if (!bizOn(row)) return;
+          if (row.joined >= start && row.joined <= end) joinsN += 1;
+          if (row.lost && row.lost >= start && row.lost <= end) lossesN += 1;
+        });
+        return { joins: joinsN, losses: lossesN, net: joinsN - lossesN };
+      }
+      membersMetric = memberStockComparisons(measure, function (start, end) { return stockBiz(end); });
+      freshMetric = memberFlowComparisons(measure, function (start, end) { return flowBiz(start, end).joins; });
+      netMetric = memberFlowComparisons(measure, function (start, end) { return flowBiz(start, end).net; });
+      membersMetric.tag = 'as of ' + formatDate(view.range.end);
+      gainSeries = gainSeries.map(function (bucket) {
+        var bits = String(bucket.id || '').split(':');
+        if (bits.length < 2) return bucket;
+        var flow = flowBiz(bits[0], bits[1]);
+        return {
+          id: bucket.id,
+          label: bucket.label,
+          joins: flow.joins,
+          losses: flow.losses,
+          active: stockBiz(bits[1]),
+          priorJoins: bucket.priorJoins || 0,
+          priorLosses: bucket.priorLosses || 0,
+          color: bucket.color,
+          pattern: bucket.pattern
+        };
+      });
+    }
+
     return {
       example: data.example === true,
       asOf: view.today,
@@ -1294,7 +1366,8 @@
       slices: view.slices,
       contextLine: contextLine,
       ytdNote: ytdNote,
-      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience),
+      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience || listOf(view.selectedBusinessTypes).length),
+      selectedBusinessTypes: listOf(view.selectedBusinessTypes),
       members: membersMetric,
       newMembers: freshMetric,
       net: netMetric,

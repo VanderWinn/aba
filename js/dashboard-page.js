@@ -11,7 +11,7 @@
   var source = null;
   var directory = null;
   var documents = { extras: [] };
-  var ui = { openMenu: '', companyFilter: '', personFilter: '', drill: null };
+  var ui = { openMenu: '', companyFilter: '', personFilter: '', drill: null, exportOpen: false };
   var mobileQuery = window.matchMedia('(max-width: 800px)');
 
   document.addEventListener('DOMContentLoaded', boot);
@@ -23,6 +23,10 @@
         ui.openMenu = '';
         paint();
       }
+    }
+    if (ui && ui.exportOpen && !event.target.closest('.export-menu')) {
+      ui.exportOpen = false;
+      paint();
     }
   });
 
@@ -155,6 +159,7 @@
       var pack = window.ABADirectory.drill(directory, ui.drill.kind, view);
       pack.shown = window.ABADirectory.queryRows(pack.rows, pack.columns, ui.drill.q, ui.drill.sort, ui.drill.dir);
       ui.drill.pack = pack;
+      ui.drill.exportOpen = !!ui.exportOpen;
       view.drill = ui.drill;
     }
     var dashRoot = document.getElementById('dash');
@@ -243,6 +248,16 @@
       update({ type: 'group', group: groupBtn.getAttribute('data-group') });
       return;
     }
+    var clearBiz = event.target.closest('[data-clear-business]');
+    if (clearBiz) {
+      update({ type: 'businessType', businessType: clearBiz.getAttribute('data-clear-business') });
+      return;
+    }
+    var bizHit = event.target.closest('[data-business-type]');
+    if (bizHit) {
+      update({ type: 'businessType', businessType: bizHit.getAttribute('data-business-type') });
+      return;
+    }
     var clearType = event.target.closest('[data-clear-type]');
     if (clearType) {
       update({ type: 'eventType', eventType: clearType.getAttribute('data-clear-type') });
@@ -250,6 +265,16 @@
     }
     if (event.target.closest('[data-clear-audience]')) {
       update({ type: 'audience', audience: state.audience });
+      return;
+    }
+    var exp = event.target.closest('[data-export]');
+    if (exp && ui.drill) {
+      ui.exportOpen = false;
+      var exportPop = document.getElementById('export-menu');
+      var exportToggle = document.querySelector('[data-export-toggle]');
+      if (exportPop) exportPop.hidden = true;
+      if (exportToggle) exportToggle.setAttribute('aria-expanded', 'false');
+      exportShown(exp.getAttribute('data-export'));
       return;
     }
     var drillOpen = event.target.closest('[data-drill]');
@@ -260,7 +285,20 @@
     }
     if (event.target.closest('[data-drill-close]')) {
       ui.drill = null;
+      ui.exportOpen = false;
       paint();
+      return;
+    }
+    if (event.target.closest('[data-export-toggle]')) {
+      ui.exportOpen = !ui.exportOpen;
+      var pop = document.getElementById('export-menu');
+      var toggle = document.querySelector('[data-export-toggle]');
+      if (pop) pop.hidden = !ui.exportOpen;
+      if (toggle) toggle.setAttribute('aria-expanded', ui.exportOpen ? 'true' : 'false');
+      if (ui.exportOpen) {
+        var firstItem = document.querySelector('.export-pop [data-export]');
+        if (firstItem) firstItem.focus();
+      }
       return;
     }
     var sort = event.target.closest('[data-sort]');
@@ -398,9 +436,98 @@
     }
   }
 
+  function exportName(title, ext) {
+    var slug = String(title || 'records').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'records';
+    var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Detroit', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return 'aba-' + slug + '-' + day + '.' + ext;
+  }
+
+  function oneLine(value) {
+    return String(value == null ? '' : value).replace(/\r\n|\r|\n/g, ' ');
+  }
+
+  function csvField(value) {
+    var text = oneLine(value);
+    if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function downloadBlob(name, blob) {
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportShown(kind) {
+    if (!ui.drill || !ui.drill.pack) return;
+    var pack = ui.drill.pack;
+    var columns = pack.columns || [];
+    var rows = pack.shown || [];
+    var headers = columns.map(function (column) { return column.label; });
+    var data = rows.map(function (row) {
+      return columns.map(function (column) {
+        return oneLine(row[column.key]);
+      });
+    });
+    var name = exportName(pack.title, kind === 'csv' ? 'csv' : 'xlsx');
+    if (kind === 'csv') {
+      var lines = [headers].concat(data).map(function (row) { return row.map(csvField).join(','); });
+      downloadBlob(name, new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      return;
+    }
+    if (!window.XLSX) return;
+    var sheet = window.XLSX.utils.aoa_to_sheet([headers].concat(data));
+    sheet['!cols'] = headers.map(function (header, index) {
+      var width = String(header).length;
+      data.forEach(function (row) {
+        var size = String(row[index] == null ? '' : row[index]).length;
+        if (size > width) width = size;
+      });
+      return { wch: Math.max(10, width + 2) };
+    });
+    var range = window.XLSX.utils.decode_range(sheet['!ref']);
+    var rowIndex;
+    var column;
+    for (rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
+      for (column = range.s.c; column <= range.e.c; column++) {
+        var cell = sheet[window.XLSX.utils.encode_cell({ r: rowIndex, c: column })];
+        if (!cell) continue;
+        cell.s = { font: { bold: rowIndex === 0 }, alignment: { wrapText: false } };
+      }
+    }
+    var book = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(book, sheet, 'Records');
+    window.XLSX.writeFile(book, name);
+  }
+
   function onKey(event) {
     var target = event.target;
-    if (!target || event.key !== 'Enter') return;
+    if (!target) return;
+    var hit = target.closest && (target.closest('.filter-hit') || (target.getAttribute && (target.hasAttribute('data-type') || target.hasAttribute('data-business-type') || target.hasAttribute('data-audience')) ? target : null));
+    if (event.key === 'Escape' && ui.exportOpen) {
+      ui.exportOpen = false;
+      var exportPop = document.getElementById('export-menu');
+      var exportToggle = document.querySelector('[data-export-toggle]');
+      if (exportPop) exportPop.hidden = true;
+      if (exportToggle) {
+        exportToggle.setAttribute('aria-expanded', 'false');
+        exportToggle.focus();
+      }
+      return;
+    }
+    if (hit && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      if (hit.hasAttribute('data-type')) update({ type: 'eventType', eventType: hit.getAttribute('data-type') });
+      else if (hit.hasAttribute('data-business-type')) update({ type: 'businessType', businessType: hit.getAttribute('data-business-type') });
+      else if (hit.hasAttribute('data-audience')) update({ type: 'audience', audience: hit.getAttribute('data-audience') });
+      return;
+    }
+    if (event.key !== 'Enter') return;
     if (target.hasAttribute('data-find')) {
       event.preventDefault();
       var kind = target.getAttribute('data-find');
