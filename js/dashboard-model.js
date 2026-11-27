@@ -40,8 +40,8 @@
     'Membership combo': 'Teal bars are new members and red bars are cancelled members for each period in Group by. The line is the active member count. The first point is the opening stock, the day before the range starts. Each later point is the count at the end of that period. The rise or drop from the opening point to the last point equals Net membership change. The last point matches Active member businesses when the range ends today.',
     'Members by business type': 'Active member businesses in each directory category, largest first. A business listed in more than one category is counted in each. Other / not listed is businesses with no category.',
     'Events Held': 'How many events took place in the date range. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business. The counts beside the event types are events in this same date range.',
-    'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business.',
-    'No-shows': 'People who signed up and were marked no-show. The count uses each attendance record’s status (no_show). If status is blank, registration_status is used. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. The same filters as the other cards apply, including business type.',
+    'Attendance': 'Event visits in the date range. A visit counts only when status is attended. If status is blank, registration_status is used. A blank or unmarked row is not a visit and not a no-show. One person at one event is one visit. The same person at two events is counted twice. This is not a count of unique people. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business.',
+    'No-shows': 'People who signed up and were marked no-show. The count uses status, or registration_status when status is blank. A blank or unmarked row is not a visit and not a no-show. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. The same filters as the other cards apply, including business type.',
     'Renewal risk': 'Members in the filtered population with no attended visit in the last 12 months, over that same population. Tenure groups split those members. The 0, 1–2, 3–5, and 6+ bars count members by visits in the prior renewal year, July through June. A guest visit counts toward a business when the visit’s company matches.',
     'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
     'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers. Business type, renewal risk, and a joined or cancelled bar do change the membership numbers, and they also change event visits. A guest visit counts when that visit’s company matches a selected member business.',
@@ -1064,7 +1064,9 @@
       signupByEvent[id] = { signups: Number(row.signups) || 0, noShows: Number(row.noShows) || 0 };
     });
     var statusRows = directory && directory.attendance ? directory.attendance : [];
-    var rowsHaveStatus = statusRows.some(function (row) { return row && row.status; });
+    var rowsHaveStatus = statusRows.some(function (row) {
+      return row && (row.status || row.registration_status || row.registrationStatus);
+    });
     function signupWindow(start, end) {
       if (directory && root.ABADirectory && root.ABADirectory.noShowSummary && rowsHaveStatus) {
         var summary = root.ABADirectory.noShowSummary(directory, view, start, end);
@@ -1091,6 +1093,12 @@
           if (pieAudience && row.audience && row.audience !== pieAudience) return;
           if (view.companies.length || view.people.length) {
             if (directory.narrow && directory.narrow.keeps && !directory.narrow.keeps(row, view)) return;
+          }
+          if (root.ABADirectory && root.ABADirectory.rowIsSignUp) {
+            if (!root.ABADirectory.rowIsSignUp(row)) return;
+            booked += 1;
+            if (root.ABADirectory.rowIsNoShow(row)) missed += 1;
+            return;
           }
           if (!statusIsSignUp(row.status)) return;
           booked += 1;

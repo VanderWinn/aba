@@ -51,6 +51,28 @@ function liveDirectory() {
   });
 }
 
+test('a visit counts only when attended is explicit', () => {
+  const directory = directoryApi.fromLive({
+    roster: [{ company: 'Blank Co', status: 'Active', joinDate: '2020-01-01' }],
+    attendanceRecords: [
+      { name: 'Ada Example', company: 'Blank Co', audience: 'Member', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'blank', date: '2026-10-08', status: '' },
+      { name: 'Bea Example', company: 'Blank Co', audience: 'Member', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'marked', date: '2026-10-08', status: ' Attended ' },
+      { name: 'Cy Example', company: 'Blank Co', audience: 'Guest', eventType: 'Happy Hour', event: 'Hour', eventId: 'reg', date: '2026-09-01', registration_status: 'Attended' },
+      { name: 'Dee Example', company: 'Blank Co', audience: 'Member', eventType: 'Ribbon Cutting', event: 'Cut', eventId: 'none', date: '2026-11-01' }
+    ]
+  });
+  const view = dash.compute(source, null, directory);
+  assert.equal(view.attendance.value, 2);
+  assert.equal(view.events.value, 2);
+  assert.equal(view.noShows.noShows, 0);
+  assert.equal(directoryApi.drill(directory, 'attendance', view).rows.length, 2);
+  const built = directoryApi.build(source);
+  built.attendance.forEach(function (row) {
+    const mark = String(row.status || '').trim().toLowerCase();
+    assert.ok(mark === 'attended' || mark === 'no_show');
+  });
+});
+
 test('unfiltered renewal matches the live feed formula', () => {
   const directory = liveDirectory();
   const view = dash.compute(source, null, directory);

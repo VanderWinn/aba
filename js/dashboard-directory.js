@@ -393,18 +393,19 @@
 
   var ALLOWED = { 'Lunch & Learn': true, 'Ribbon Cutting': true, 'Happy Hour': true };
 
+  function foldStatus(value) {
+    return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  }
+
+  function visitMark(row) {
+    var status = foldStatus(row && row.status);
+    if (!status) status = foldStatus(row && (row.registration_status || row.registrationStatus));
+    return status;
+  }
+
   function countedVisit(row) {
     if (row.eventType && !ALLOWED[row.eventType]) return false;
-    if (row.status && String(row.status).toLowerCase() !== 'attended') return false;
-    return true;
-  }
-
-  function outcomeOf(row) {
-    return String((row && row.status) || '').toLowerCase().replace(/[\s-]+/g, '_');
-  }
-
-  function registrationOf(row) {
-    return String((row && (row.registration_status || row.registrationStatus)) || '').toLowerCase().replace(/[\s-]+/g, '_');
+    return visitMark(row) === 'attended';
   }
 
   function isNoShowText(text) {
@@ -412,21 +413,18 @@
   }
 
   function rowIsNoShow(row) {
-    var status = outcomeOf(row);
-    if (isNoShowText(status)) return true;
-    if (!status) return isNoShowText(registrationOf(row));
-    return false;
+    return isNoShowText(visitMark(row));
   }
 
   function rowIsSignUp(row) {
-    var status = outcomeOf(row) || registrationOf(row);
+    var status = visitMark(row);
     if (!status || status.indexOf('cancel') === 0) return false;
     return status === 'attended' || status === 'registered' || isNoShowText(status);
   }
 
   function outcomesPresent(directory) {
     return (directory.attendance || []).some(function (row) {
-      return outcomeOf(row) || registrationOf(row);
+      return visitMark(row);
     });
   }
 
@@ -505,8 +503,7 @@
     }
     (directory.attendance || []).forEach(function (row) {
       if (!row.eventType || !ALLOWED[row.eventType]) return;
-      var status = outcomeOf(row);
-      if (status && status !== 'attended') return;
+      if (visitMark(row) !== 'attended') return;
       var date = isoDate(row.date);
       if (!date) return;
       var email = foldLabel(row.email);
@@ -1237,6 +1234,8 @@
     renewalStats: renewalStats,
     noShowSummary: noShowSummary,
     rowIsNoShow: rowIsNoShow,
+    rowIsSignUp: rowIsSignUp,
+    visitMark: visitMark,
     categoriesOf: categoriesOf,
     matchesBusinessType: matchesBusinessType,
     exportFileName: exportFileName,
