@@ -12,6 +12,19 @@
   var INK = '#39393a';
   var exampleFlags = true;
 
+  function markOpen(on, label, attrs) {
+    return '<g class="filter-hit" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="' + escapeHtml(label) + '" ' + attrs + '>';
+  }
+
+  function markClose() {
+    return '</g>';
+  }
+
+  function periodOn(view, id, flow) {
+    if (!view || !view.bucket || view.bucket !== id) return false;
+    return (view.flow || '') === (flow || '');
+  }
+
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
@@ -81,7 +94,7 @@
     });
   }
 
-  function yearGainSvg(series, w, h) {
+  function yearGainSvg(series, view, w, h) {
     w = w || 520;
     h = h || 220;
     var maxUp = 1;
@@ -102,8 +115,14 @@
       var x = x0 + index * (bw + gap);
       var up = (bar.joins || 0) * sc;
       var down = (bar.losses || 0) * sc;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
+      var gainOn = periodOn(view, bar.id, 'new');
+      var lossOn = periodOn(view, bar.id, 'lost');
+      var gainDim = view && view.bucket && !gainOn ? ' opacity="0.35"' : '';
+      var lossOpacity = view && view.bucket && !lossOn ? '0.2' : '0.4';
+      parts.push(markOpen(gainOn, 'New members ' + bar.label, 'data-period="' + escapeHtml(bar.id || '') + '" data-flow="new"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + bar.color + '"' + gainDim + (gainOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>' + markClose());
+      parts.push(markOpen(lossOn, 'Cancelled members ' + bar.label, 'data-period="' + escapeHtml(bar.id || '') + '" data-flow="lost"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + bar.color + '" opacity="' + lossOpacity + '"' + (lossOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>' + markClose());
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
       if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
@@ -111,7 +130,7 @@
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function yearCountSvg(bars, kind, w, h) {
+  function yearCountSvg(bars, kind, view, w, h) {
     w = w || 420;
     h = h || 132;
     var max = 1;
@@ -128,13 +147,16 @@
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
       var y = base - height;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>');
+      var on = periodOn(view, bar.id, '');
+      var dim = view && view.bucket && !on ? ' opacity="0.35"' : '';
+      parts.push(markOpen(on, bar.label + ' ' + kind, 'data-period="' + escapeHtml(bar.id || '') + '"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 2).toFixed(1) + '" fill="' + bar.color + '"' + dim + (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>' + markClose());
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.value || 0) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function groupedSvg(groups, key, kind) {
+  function groupedSvg(groups, key, kind, view) {
     var sample = (groups[0] && groups[0].bars) || [];
     var w = Math.max(420, groups.length * (sample.length * 16 + 28));
     var h = 150;
@@ -154,15 +176,20 @@
         var height = ((bar[key] || 0) / max) * plot;
         var x = left + barIndex * bw;
         var y = base - height;
-        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>');
+        var on = periodOn(view, bar.start && bar.end ? bar.start + ':' + bar.end : '', '');
+        var dim = view && view.bucket && !on ? ' opacity="0.35"' : '';
+        parts.push(markOpen(on, bar.label + ' ' + group.label, 'data-period="' + escapeHtml(bar.start && bar.end ? bar.start + ':' + bar.end : '') + '"'));
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"' + dim + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>' + markClose());
       });
       parts.push('<text x="' + (8 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function gainsSvg(series, selectedId, showLabels, legend, w, h) {
-    if (series && series.length && series[0].color) return yearGainSvg(series, w, h);
+  function gainsSvg(series, view, w, h) {
+    var showLabels = true;
+    var legend = (view && view.gainLegend) || { current: 'This FY', prior: 'Last FY' };
+    if (series && series.length && series[0].color) return yearGainSvg(series, view, w, h);
     var any = false;
     (series || []).forEach(function (bucket) {
       if (bucket.joins || bucket.losses || bucket.priorJoins || bucket.priorLosses) any = true;
@@ -195,11 +222,17 @@
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
     }
-    function bars(x, joins, losses, upColor, downColor) {
+    function bars(x, joins, losses, upColor, downColor, periodId) {
       var up = joins * sc;
       var down = losses * sc;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + upColor + '"/>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + downColor + '"/>');
+      var gainOn = periodOn(view, periodId, 'new');
+      var lossOn = periodOn(view, periodId, 'lost');
+      var gainDim = view && view.bucket && !gainOn ? ' opacity="0.35"' : '';
+      var lossDim = view && view.bucket && !lossOn ? ' opacity="0.35"' : '';
+      parts.push(markOpen(gainOn, 'New members ' + periodId, 'data-period="' + escapeHtml(periodId || '') + '" data-flow="new"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + upColor + '"' + gainDim + (gainOn ? ' stroke="#243033" stroke-width="2"' : '') + '/>' + markClose());
+      parts.push(markOpen(lossOn, 'Cancelled members ' + periodId, 'data-period="' + escapeHtml(periodId || '') + '" data-flow="lost"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + downColor + '"' + lossDim + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '/>' + markClose());
       if (!labelValues) return;
       var cx = x + bw / 2;
       if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
@@ -207,18 +240,14 @@
     }
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
-      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS);
+      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS, bucket.priorId);
       var currentX = slot + bw + gap;
       var currentUp = index === series.length - 1 ? YTD : TEAL;
-      bars(currentX, bucket.joins || 0, bucket.losses || 0, currentUp, CLAY);
+      bars(currentX, bucket.joins || 0, bucket.losses || 0, currentUp, CLAY, bucket.id);
       var labelSize = font;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
       }
-      if (bucket.id === selectedId) {
-        parts.push('<rect x="' + (currentX - 3).toFixed(1) + '" y="18" width="' + (bw + 6).toFixed(1) + '" height="' + (h - 36) + '" fill="none" stroke="' + CORAL + '" stroke-width="1.6" stroke-dasharray="4 3" rx="3"/>');
-      }
-      parts.push('<rect class="hit" data-bucket="' + escapeHtml(bucket.id) + '" x="' + (currentX - 1).toFixed(1) + '" y="18" width="' + (bw + 2).toFixed(1) + '" height="' + (h - 34) + '" fill="transparent"/>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses, this fiscal year beside last fiscal year">' + parts.join('') + '</svg>';
   }
@@ -488,6 +517,20 @@ function stepControl(step, enabled, compact, attrs) {
       '<div class="dgroup"><span class="lab">Group by</span>' + groupControl(view) + '</div>' + activeChips(view) + clear + '</div>';
   }
 
+  function periodChipLabel(view, id) {
+    var found = '';
+    (view.buckets || []).concat(view.monthBuckets || []).concat(view.gains || []).forEach(function (bucket) {
+      if (bucket && (bucket.id === id || bucket.priorId === id)) found = bucket.id === id ? bucket.label : found;
+    });
+    var start = String(id || '').split(':')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return found || id;
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var dated = months[Number(start.slice(5, 7)) - 1] + ' ' + start.slice(0, 4);
+    if (!found) return dated;
+    if (/\d/.test(found)) return found;
+    return found + ' ' + start.slice(0, 4);
+  }
+
   function activeChips(view) {
     var chips = [];
     (view.eventTypes || []).forEach(function (type) {
@@ -502,9 +545,22 @@ function stepControl(step, enabled, compact, attrs) {
     (view.people || []).forEach(function (name) {
       chips.push('<button type="button" class="filter-chip" data-clear-person="' + escapeHtml(name) + '">Attendee: ' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     });
-    if (view.audience === 'Member' || view.audience === 'Guest') {
-      var label = view.audience === 'Member' ? 'Members' : 'Guests';
+    if (view.audience === 'Member' || view.audience === 'Guest' || view.audience === 'No-show') {
+      var label = view.audience === 'Member' ? 'Members' : (view.audience === 'Guest' ? 'Guests' : 'No-shows');
       chips.push('<button type="button" class="filter-chip" data-clear-audience>Visits: ' + label + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
+    if (view.bucket) {
+      chips.push('<button type="button" class="filter-chip" data-clear-period>Period: ' + escapeHtml(periodChipLabel(view, view.bucket)) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
+    if (view.flow === 'new' || view.flow === 'lost') {
+      chips.push('<button type="button" class="filter-chip" data-clear-flow>Change: ' + (view.flow === 'new' ? 'New' : 'Cancelled') + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
+    if (view.renewalTenure) {
+      var tenureLabel = view.renewalTenure === 'newer' ? (view.renewalRisk && view.renewalRisk.newerLabel) : (view.renewalTenure === 'longer' ? (view.renewalRisk && view.renewalRisk.longerLabel) : 'Other');
+      chips.push('<button type="button" class="filter-chip" data-clear-tenure>Renewal risk: ' + escapeHtml(tenureLabel || view.renewalTenure) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
+    if (view.renewalBand) {
+      chips.push('<button type="button" class="filter-chip" data-clear-band>Renewal risk: ' + escapeHtml(view.renewalBand) + ' visits <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     }
     if (!chips.length) return '';
     return '<div class="filter-chips" aria-label="Active filters">' + chips.join('') + '</div>';
@@ -562,7 +618,8 @@ function stepControl(step, enabled, compact, attrs) {
     var members = pie.members || 0;
     var guests = pie.guests || 0;
     var showMissed = !!(view.noShows && view.noShows.ready && view.noShows.noShows > 0);
-    var missed = showMissed ? view.noShows.noShows : 0;
+    var missed = view.pie && view.pie.noShows != null ? view.pie.noShows : (showMissed ? view.noShows.noShows : 0);
+    if (!showMissed && !(view.pie && view.pie.noShows)) missed = 0;
     var total = members + guests + missed;
     function share(count) { return total ? Math.round((count / total) * 100) : 0; }
     var memberPct = share(members);
@@ -577,8 +634,8 @@ function stepControl(step, enabled, compact, attrs) {
       { audience: 'Member', count: members, pct: memberPct, fill: '#3F768B', ink: '#fff', text: 'Members ' + members + ' \u00b7 ' + memberPct + '%', where: 'in' }
     ];
     rows.push({ audience: 'Guest', count: guests, pct: guestPct, fill: '#7D949C', ink: '#243033', text: 'Guests ' + guests + ' \u00b7 ' + guestPct + '%', where: 'in' });
-    if (showMissed) {
-      rows.push({ audience: '', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%', where: 'above' });
+    if (showMissed || missed) {
+      rows.push({ audience: 'No-show', count: missed, pct: missedPct, fill: CLAY, ink: '#fff', text: 'No-shows ' + missed + ' \u00b7 ' + missedPct + '%', where: 'above' });
     }
     var parts = [];
     var x = 0;
@@ -589,7 +646,8 @@ function stepControl(step, enabled, compact, attrs) {
       var inside = row.where === 'in' && width >= need;
       var on = row.audience && view.audience === row.audience;
       var dim = view.audience && row.audience !== view.audience ? ' opacity="0.35"' : '';
-      var click = row.audience ? ' class="filter-hit" data-audience="' + row.audience + '" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="Visits: ' + (row.audience === 'Member' ? 'Members' : 'Guests') + '"' : '';
+      var visitLabel = row.audience === 'Member' ? 'Members' : (row.audience === 'Guest' ? 'Guests' : 'No-shows');
+      var click = ' class="filter-hit" data-audience="' + row.audience + '" tabindex="0" role="button" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="Visits: ' + visitLabel + '"';
       parts.push('<g' + click + '><rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + width.toFixed(1) + '" height="' + barH + '" fill="' + row.fill + '"' + dim +
         (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(row.text) + (on ? ', selected' : '') + '</title></rect>');
       var tx = x + width / 2;
@@ -649,7 +707,7 @@ function stepControl(step, enabled, compact, attrs) {
     return index % 2 === 0 || index === count - 1;
   }
 
-  function solidLineSvg(values, labels, kind, color, compact, w, h) {
+  function solidLineSvg(values, labels, kind, color, compact, w, h, ids, view) {
     var n = values.length || 1;
     w = w || (n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420);
     h = h || (n > 6 ? (compact ? 180 : 200) : 150);
@@ -673,8 +731,11 @@ function stepControl(step, enabled, compact, attrs) {
       var x = xx(index);
       var y = yy(value);
       var tip = escapeHtml((labels[index] || '') + ' ' + value);
-      parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="9" fill="transparent"><title>' + tip + '</title></circle>');
-      parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"/>');
+      var periodId = (ids && ids[index]) || '';
+      var on = periodOn(view, periodId, '');
+      parts.push(markOpen(on, (labels[index] || kind) + ' ' + value, 'data-period="' + escapeHtml(periodId) + '"'));
+      parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="11" fill="transparent"' + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></circle>');
+      parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"' + (view && view.bucket && !on ? ' opacity="0.35"' : '') + '/>' + markClose());
       var crowded = n > 6;
       if (!crowded || index === lastIndex || index === maxIndex) {
         parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
@@ -686,7 +747,7 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
-  function multiLineSvg(groups, key, kind, compact, w, h) {
+  function multiLineSvg(groups, key, kind, compact, view, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     w = w || Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
@@ -736,8 +797,11 @@ function stepControl(step, enabled, compact, attrs) {
         var y = yy(bar[key]);
         segment.push(x.toFixed(1) + ',' + y.toFixed(1));
         var tip = escapeHtml(bar.label + ' ' + group.label + ' ' + (bar[key] || 0));
-        parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="9" fill="transparent"><title>' + tip + '</title></circle>');
-        parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.2" fill="' + seriesBar.color + '"/>');
+        var periodId = bar.start && bar.end ? bar.start + ':' + bar.end : '';
+        var on = periodOn(view, periodId, '');
+        parts.push(markOpen(on, bar.label + ' ' + group.label + ' ' + (bar[key] || 0), 'data-period="' + escapeHtml(periodId) + '"'));
+        parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="11" fill="transparent"' + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></circle>');
+        parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.2" fill="' + seriesBar.color + '"' + (view && view.bucket && !on ? ' opacity="0.35"' : '') + '/>' + markClose());
         var crowded = n > 6 || sample.length > 1;
         if (!crowded || index === lastIndex || index === maxIndex) {
           var dx = (seriesIndex - (sample.length - 1) / 2) * 16;
@@ -753,7 +817,7 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ', one line per fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function groupedGainSvg(groups, compact, w, h) {
+  function groupedGainSvg(groups, compact, view, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     var seriesCount = Math.max(sample.length, 1);
@@ -784,8 +848,13 @@ function stepControl(step, enabled, compact, attrs) {
         var up = (bar.joins || 0) * sc;
         var down = (bar.losses || 0) * sc;
         var tip = escapeHtml(bar.label + ' ' + group.label + ' gained ' + (bar.joins || 0) + ', lost ' + (bar.losses || 0));
-        parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"><title>' + tip + '</title></rect>');
-        parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + (bar.color || TEAL) + '" opacity="0.4"><title>' + tip + '</title></rect>');
+        var periodId = bar.start && bar.end ? bar.start + ':' + bar.end : '';
+        var gainOn = periodOn(view, periodId, 'new');
+        var lossOn = periodOn(view, periodId, 'lost');
+        parts.push(markOpen(gainOn, 'New members ' + bar.label + ' ' + group.label, 'data-period="' + escapeHtml(periodId) + '" data-flow="new"'));
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"' + (view && view.bucket && !gainOn ? ' opacity="0.35"' : '') + (gainOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></rect>' + markClose());
+        parts.push(markOpen(lossOn, 'Cancelled members ' + bar.label + ' ' + group.label, 'data-period="' + escapeHtml(periodId) + '" data-flow="lost"'));
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '" opacity="' + (view && view.bucket && !lossOn ? '0.2' : '0.4') + '"' + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></rect>' + markClose());
         if (bar.joins) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 4).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.joins + '</text>');
         if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + labelSize).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       });
@@ -840,33 +909,39 @@ function stepControl(step, enabled, compact, attrs) {
     var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
     var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
     if (view.group === 'month' || view.group === 'quarter') {
-      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, w, h);
+      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, view, w, h);
       var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
+      var ids = (view.monthBuckets || []).map(function (bucket) { return bucket.id; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
-      return solidLineSvg(values, labels, title, color, view.mobile, w, h);
+      return solidLineSvg(values, labels, title, color, view.mobile, w, h, ids, view);
     }
     if (view.group === 'year' && view.yearBars) {
       return yearCountSvg(view.yearBars.map(function (bar) {
-        return { label: bar.label, value: bar[key], color: bar.color };
-      }), title, w, h);
+        return { label: bar.label, value: bar[key], color: bar.color, id: bar.start + ':' + bar.end };
+      }), title, view, w, h);
     }
-    if (view.groups) return groupedSvg(view.groups, key, title);
+    if (view.groups) return groupedSvg(view.groups, key, title, view);
     var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
-    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h);
+    var fallbackIds = (view.monthBuckets || []).map(function (bucket) { return bucket.id; });
+    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h, fallbackIds, view);
   }
 
   function membershipCombo(view, w, h) {
     var series = (view.gains || []).map(function (bucket) {
       return {
+        id: bucket.id || '',
         label: bucket.label || '',
         joins: bucket.joins || 0,
         losses: bucket.losses || 0,
         active: bucket.active || 0
       };
     });
-    if (series.length && view.members && view.members.value != null) series[series.length - 1].active = view.members.value;
+    if (series.length && view.members && view.members.value != null && !(view.focus && view.bucket)) series[series.length - 1].active = view.members.value;
+    if (view.openingActive != null) {
+      series.unshift({ id: '', label: 'Start', joins: 0, losses: 0, active: view.openingActive, opening: true });
+    }
     if (!series.length) return emptyChart('is-gains');
     var n = series.length;
     w = w || 640;
@@ -915,10 +990,16 @@ function stepControl(step, enabled, compact, attrs) {
       var xCan = cx + gap / 2;
       var up = barH(bucket.joins);
       var down = barH(bucket.losses);
-      parts.push('<rect x="' + xNew.toFixed(1) + '" y="' + (base - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + up.toFixed(1) + '" fill="' + TEAL + '"><title>New ' + bucket.joins + '</title></rect>');
-      parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + base + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"><title>Cancelled ' + bucket.losses + '</title></rect>');
-      parts.push('<text x="' + (xNew + bw / 2).toFixed(1) + '" y="' + (base - up - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
-      parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base + down + 12).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
+      if (!bucket.opening) {
+        var gainOn = periodOn(view, bucket.id, 'new');
+        var lossOn = periodOn(view, bucket.id, 'lost');
+        parts.push(markOpen(gainOn, 'New members ' + bucket.label, 'data-period="' + escapeHtml(bucket.id) + '" data-flow="new"'));
+        parts.push('<rect x="' + xNew.toFixed(1) + '" y="' + (base - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + TEAL + '"' + (view.bucket && !gainOn ? ' opacity="0.35"' : '') + (gainOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>New ' + bucket.joins + '</title></rect>' + markClose());
+        parts.push(markOpen(lossOn, 'Cancelled members ' + bucket.label, 'data-period="' + escapeHtml(bucket.id) + '" data-flow="lost"'));
+        parts.push('<rect x="' + xCan.toFixed(1) + '" y="' + base + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + CLAY + '"' + (view.bucket && !lossOn ? ' opacity="0.35"' : '') + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>Cancelled ' + bucket.losses + '</title></rect>' + markClose());
+        parts.push('<text x="' + (xNew + bw / 2).toFixed(1) + '" y="' + (base - up - 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
+        parts.push('<text x="' + (xCan + bw / 2).toFixed(1) + '" y="' + (base + down + 12).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
+      }
       var y = lineY(bucket.active);
       points.push(cx.toFixed(1) + ',' + y.toFixed(1));
       parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
@@ -927,7 +1008,12 @@ function stepControl(step, enabled, compact, attrs) {
     series.forEach(function (bucket, index) {
       var cx = cxOf(index);
       var y = lineY(bucket.active);
-      parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="#243033"><title>Active members ' + bucket.active + '</title></circle>');
+      var pointOn = !bucket.opening && periodOn(view, bucket.id, '');
+      var pointLabel = bucket.opening ? 'Opening stock ' + bucket.active : 'End of ' + bucket.label + ', ' + bucket.active + ' active members';
+      var pointAttrs = bucket.opening ? '' : 'data-period="' + escapeHtml(bucket.id) + '"';
+      parts.push(bucket.opening ? '<g>' : markOpen(pointOn, pointLabel, pointAttrs));
+      parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="11" fill="transparent"' + (pointOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + escapeHtml(pointLabel) + '</title></circle>');
+      parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="#243033"' + (view.bucket && !bucket.opening && !pointOn ? ' opacity="0.35"' : '') + '/>' + (bucket.opening ? '</g>' : markClose()));
       parts.push('<text x="' + cx.toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#243033" font-family="Montserrat, Raleway, sans-serif">' + bucket.active + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="New and cancelled members by period, with active members ending at ' + series[series.length - 1].active + '">' + parts.join('') + '</svg>';
@@ -998,9 +1084,9 @@ function stepControl(step, enabled, compact, attrs) {
   }
 
   function gainsChart(view, w, h) {
-    if (view.group === 'year') return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
-    if (view.groups) return groupedGainSvg(view.groups, !!view.mobile, w, h);
-    return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
+    if (view.group === 'year') return gainsSvg(view.gains, view, w, h);
+    if (view.groups) return groupedGainSvg(view.groups, !!view.mobile, view, w, h);
+    return gainsSvg(view.gains, view, w, h);
   }
 
   function ytdLine(view) {
@@ -1082,7 +1168,7 @@ function stepControl(step, enabled, compact, attrs) {
     return card('No-shows', 'No-shows',
       '<p class="kpi-num">' + metric.noShows + '</p>' + tag +
       '<div class="chart-slot" data-chart="noshows">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
-      ' card-noshow kpi-noshow', 'events', 'View the event list');
+      ' card-noshow kpi-noshow', 'noshows', 'View the no-show list');
   }
 
   function shortNewerLabel(label) {
@@ -1097,7 +1183,7 @@ function stepControl(step, enabled, compact, attrs) {
     return 'Joined ' + match[1] + ' or earlier';
   }
 
-  function lapseChart(bands, w, h) {
+  function lapseChart(bands, view, w, h) {
     var rows = bands && bands.length ? bands : [];
     w = w || 420;
     h = h || 150;
@@ -1122,7 +1208,10 @@ function stepControl(step, enabled, compact, attrs) {
       var x = cx - bw / 2;
       var y = base - barH;
       var color = lapsed ? '#D01F25' : '#7D949C';
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + escapeHtml(longText) + '</title></rect>');
+      var bandOn = view && view.renewalBand === row.band;
+      var bandDim = view && view.renewalBand && !bandOn ? ' opacity="0.35"' : '';
+      parts.push(markOpen(bandOn, 'Renewal risk: ' + row.band + ' visits', 'data-renewal-band="' + escapeHtml(row.band || '') + '"'));
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(barH, 2).toFixed(1) + '" fill="' + color + '"' + bandDim + (bandOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(longText) + '</title></rect>' + markClose());
       var labelY = Math.min(y - 6, base - 18);
       parts.push('<text x="' + cx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(label) + '</text>');
       parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
@@ -1135,25 +1224,32 @@ function stepControl(step, enabled, compact, attrs) {
     if (!risk) {
       return card('Renewal risk', 'Renewal risk', '<p class="period-tag">These totals are not in this feed yet.</p>', ' card-renewal kpi-renewal', '', '');
     }
-    var active = view.members && view.members.value != null ? view.members.value : risk.cohort;
-    var pct = active ? Math.round((risk.zeroAttendance / active) * 100) : 0;
+    var active = risk.cohort != null ? risk.cohort : (view.members && view.members.value != null ? view.members.value : 0);
+    var pct = risk.pct != null ? risk.pct : (active ? Math.round((risk.zeroAttendance / active) * 100) : 0);
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
     var tenure = risk.byTenure || {};
     var unknown = tenure.unknown || 0;
     var thisYear = tenure.thisYear || 0;
     var other = unknown + thisYear;
     var cycle = 0;
     (risk.lapseByBand || []).forEach(function (row) { cycle += row.members || 0; });
+    function tenureButton(key, label, value, riskClass) {
+      var on = view.renewalTenure === key;
+      return '<button type="button" class="filter-hit tenure-hit' + (on ? ' is-on' : '') + '" data-renewal-tenure="' + key + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<div class="pl">' + escapeHtml(label) + '</div><div class="pv' + (riskClass ? ' is-risk' : '') + '">' + value + '</div></button>';
+    }
     var parts = '<div class="pr">' +
-      '<div><div class="pl">' + escapeHtml(shortNewerLabel(risk.newerLabel)) + '</div><div class="pv is-risk">' + (tenure.newer || 0) + '</div></div>' +
-      '<div><div class="pl">' + escapeHtml(shortLongerLabel(risk.longerLabel)) + '</div><div class="pv">' + (tenure.longer || 0) + '</div></div>' +
-      '<div><div class="pl">Other</div><div class="pv">' + other + '</div></div></div>';
+      tenureButton('newer', shortNewerLabel(risk.newerLabel), tenure.newer || 0, true) +
+      tenureButton('longer', shortLongerLabel(risk.longerLabel), tenure.longer || 0, false) +
+      tenureButton('other', 'Other', other, false) + '</div>';
     var tip = ' Other is ' + unknown + ' with no join date and ' + thisYear + ' who joined this fiscal year. Last renewal year: ' + cycle + ' members, by events attended.';
     return card('Renewal risk', 'Renewal risk',
       '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
       '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
-      '<div class="chart-slot" data-chart="lapse">' + lapseChart(risk.lapseByBand) + '</div>',
-      ' card-renewal kpi-renewal', 'members', 'View the member list', tip);
+      '<div class="chart-slot" data-chart="lapse">' + lapseChart(risk.lapseByBand, view) + '</div>',
+      ' card-renewal kpi-renewal', 'renewal', 'View the member list', tip);
   }
 
   function eventsPage(view) {
@@ -1211,7 +1307,7 @@ function stepControl(step, enabled, compact, attrs) {
     var body = emptyNote + (page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view)));
     var tipExtra = '';
     if (view.ytdNote) tipExtra += ' ' + view.ytdNote;
-    if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers.';
+    if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers. Business type, renewal risk, and a joined or cancelled selection do. A guest visit counts when that visit’s company matches a selected member business.';
     var contextTip = tipExtra ? hint('', view.ytdNote ? 'Year to date' : 'Membership filters', true, tipExtra) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
       '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + filterBtn +

@@ -1069,6 +1069,9 @@ select:focus-visible {
 .controls .filter-chips { margin-top: 0; }
 .no-matches { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #3d4c50; }
 .filter-hit { cursor: pointer; }
+.tenure-hit { background: transparent; border: 0; padding: 0; text-align: inherit; font: inherit; color: inherit; }
+.tenure-hit.is-on { outline: 2px solid #243033; }
+.tenure-hit:focus-visible { outline: 2px solid #243033; }
 .filter-hit:focus { outline: none; }
 .filter-hit:focus-visible rect { stroke: #243033; stroke-width: 3; }
 .filter-chip {
