@@ -23,30 +23,69 @@ const sandbox = load();
 const dash = sandbox.ABADashboard;
 const data = sandbox.ABADashboardData.placeholderSource();
 
-test('the year filter defaults to the prior and current fiscal years', () => {
+function paint(view, extra) {
+  return sandbox.ABADashboardView.render(Object.assign({}, view, extra || {}, {
+    mobile: false,
+    documents: (extra && extra.documents) || { extras: [] },
+    ui: (extra && extra.ui) || {}
+  }));
+}
+
+test('this fiscal year is the default and a partial year is year to date', () => {
   const home = dash.compute(data, null);
-  assert.deepEqual(Array.from(home.chosenYears), [2026, 2027]);
-  assert.deepEqual(Array.from(home.gains, (bar) => bar.label), ['FY2026', 'FY2027']);
-  assert.equal(home.events.value, home.yearBars[0].events + home.yearBars[1].events);
-  assert.equal(home.members.value, home.yearBars[1].members);
-  assert.equal(home.events.parts[0].pct + home.events.parts[1].pct, 100);
-  const html = sandbox.ABADashboardView.render(Object.assign({}, home, { mobile: false, documents: { extras: [] }, ui: { openMenu: 'year' } }));
-  assert.match(html, /data-year-option="2026" checked/);
-  assert.match(html, /data-year-option="2027" checked/);
-  assert.equal((html.match(/data-year-option="/g) || []).length >= 3, true);
+  assert.equal(home.rangeKind, 'fy');
+  assert.equal(home.group, 'month');
+  assert.equal(home.page, 'overview');
+  assert.equal(home.contextLine, 'FY2027 year to date · Grouped by month · All event types');
+  assert.equal(home.members.caption, '412 active member businesses as of Nov 24, 2026');
+  assert.equal(home.eventCounts.all, home.events.value);
+  assert.match(home.ytdNote, /FY2027 YTD runs through Nov 24, 2026/);
+  assert.match(home.ytdNote, /Jul 1, 2025/);
+  assert.equal(home.events.lastYear < 12, true);
+  const fullPrior = dash.compute(data, { rangeKind: 'custom', group: 'year', years: [2026] });
+  assert.equal(fullPrior.events.value, 12);
+  assert.notEqual(home.events.lastYear, fullPrior.events.value);
 });
 
-test('one selected year draws a single bar and three years sit side by side', () => {
-  const one = dash.compute(data, { years: [2027], period: 'year' });
-  assert.deepEqual(Array.from(one.gains, (bar) => bar.label), ['FY2027']);
-  assert.equal(one.yearBars.length, 1);
-  assert.equal(one.events.parts, undefined);
-  const three = dash.compute(data, { years: [2025, 2026, 2027], period: 'year' });
-  assert.deepEqual(Array.from(three.yearBars, (bar) => bar.label), ['FY2025', 'FY2026', 'FY2027']);
+test('three fiscal years sit side by side and event filters do not change membership', () => {
+  const three = dash.compute(data, { rangeKind: 'last3', group: 'year' });
+  assert.equal(three.contextLine, 'FY2025–FY2027 · Grouped by fiscal year · All event types');
+  assert.deepEqual(Array.from(three.yearBars, (bar) => bar.label), ['FY2025', 'FY2026', 'FY2027 YTD']);
   assert.equal(new Set(Array.from(three.yearBars, (bar) => bar.color)).size, 3);
-  const html = sandbox.ABADashboardView.render(Object.assign({}, three, { mobile: false, documents: { extras: [] } }));
-  assert.match(html, /by fiscal year/);
-  assert.equal(html.includes('┅'), false);
-  const reset = dash.applyAction(data, { years: [2025], period: 'month' }, { type: 'reset' });
-  assert.deepEqual(Array.from(reset.years), [2026, 2027]);
+  assert.equal(new Set(Array.from(three.yearBars, (bar) => bar.pattern)).size, 3);
+  assert.equal(three.yearBars.some((bar) => bar.color === '#B84734'), false);
+  assert.equal(three.events.value, three.eventCounts.all);
+  assert.equal(three.events.value, three.yearBars[0].events + three.yearBars[1].events + three.yearBars[2].events);
+  const filtered = dash.compute(data, { rangeKind: 'last3', group: 'year', eventTypes: ['Lunch & Learn'], companies: ['Ada River Cafe'] });
+  assert.equal(filtered.members.value, three.members.value);
+  assert.equal(filtered.net.value, three.net.value);
+  assert.equal(filtered.events.value, filtered.eventCounts['Lunch & Learn']);
+  assert.equal(filtered.filtersActive, true);
+  const html = paint(three, { ui: { openMenu: 'range' } });
+  assert.match(html, /Hospitality Sign-Up/);
+  assert.match(html, /Documents/);
+  assert.match(html, /View membership details/);
+  assert.match(html, /Member visits/);
+  assert.match(html, /Guest visits/);
+  assert.match(html, /Gained/);
+  assert.match(html, /Lost/);
+  assert.equal(html.includes('>Open'), false);
+  assert.equal(html.includes('Clear filters'), false);
+  const eventsHtml = paint(filtered, { page: 'events' });
+  assert.match(eventsHtml, /data-type-box="Lunch &amp; Learn" checked/);
+  assert.match(eventsHtml, /Clear filters/);
+  assert.match(eventsHtml, /Lunch &amp; Learn/);
+  assert.match(eventsHtml, /All types in this range/);
+  assert.match(eventsHtml, /Events &amp; Attendance/);
+  const cleared = dash.applyAction(data, { rangeKind: 'last3', group: 'year', eventTypes: ['Happy Hour'] }, { type: 'clearFilters' });
+  assert.deepEqual(Array.from(cleared.eventTypes), []);
+  assert.equal(cleared.rangeKind, 'last3');
+});
+
+test('the entry card is Member access and does not repeat the portal title', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /id="portal-gate-title">Member access</);
+  assert.match(html, /Need access\? Contact the ABA board secretary\./);
+  assert.match(html, /<h1>ABA Board &amp; Committee Portal<\/h1>/);
+  assert.equal(html.includes('portal-gate-title">ABA Board'), false);
 });

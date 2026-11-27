@@ -216,11 +216,35 @@
       if (!open) info.classList.add('is-open');
       return;
     }
-    if (event.target.closest('[data-reset]')) {
+    if (event.target.closest('[data-clear-filters]') || event.target.closest('[data-reset]')) {
       ui.companyFilter = '';
       ui.personFilter = '';
       ui.openMenu = '';
-      update({ type: 'reset' });
+      update({ type: 'clearFilters' });
+      return;
+    }
+    if (event.target.closest('[data-filters]')) {
+      ui.filtersOpen = !ui.filtersOpen;
+      paint();
+      return;
+    }
+    var pageBtn = event.target.closest('[data-page]');
+    if (pageBtn) {
+      update({ type: 'page', page: pageBtn.getAttribute('data-page') });
+      return;
+    }
+    var groupBtn = event.target.closest('[data-group]');
+    if (groupBtn) {
+      update({ type: 'group', group: groupBtn.getAttribute('data-group') });
+      return;
+    }
+    var clearType = event.target.closest('[data-clear-type]');
+    if (clearType) {
+      update({ type: 'eventType', eventType: clearType.getAttribute('data-clear-type') });
+      return;
+    }
+    if (event.target.closest('[data-clear-audience]')) {
+      update({ type: 'audience', audience: state.audience });
       return;
     }
     var drillOpen = event.target.closest('[data-drill]');
@@ -409,9 +433,27 @@
       var picked = (state.years || []).map(Number);
       var at = picked.indexOf(year);
       if (at === -1) picked.push(year);
-      else if (picked.length > 1) picked.splice(at, 1);
-      ui.openMenu = 'year';
+      else if (picked.length > 1 || state.from || state.to) picked.splice(at, 1);
+      ui.openMenu = 'range';
       update({ type: 'years', years: picked });
+      return;
+    }
+    if (target && target.hasAttribute('data-range')) {
+      ui.openMenu = 'range';
+      update({ type: 'range', rangeKind: target.getAttribute('data-range') });
+      return;
+    }
+    if (target && (target.hasAttribute('data-from') || target.hasAttribute('data-to'))) {
+      ui.openMenu = 'range';
+      update({
+        type: 'dates',
+        from: target.hasAttribute('data-from') ? target.value : state.from,
+        to: target.hasAttribute('data-to') ? target.value : state.to
+      });
+      return;
+    }
+    if (target && target.hasAttribute('data-type-box')) {
+      update({ type: 'eventType', eventType: target.getAttribute('data-type-box') });
       return;
     }
     if (target && target.hasAttribute('data-year-select')) {

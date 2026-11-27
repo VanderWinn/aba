@@ -459,7 +459,7 @@
       var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
       return {
-        title: kind === 'distribution' ? 'Attendee Distribution' : 'Attendee Count',
+        title: kind === 'distribution' ? 'Member and guest visits' : 'Event visits',
         kind: kind,
         columns: columnList(rows, ['name', 'audience', 'event', 'date', 'email', 'phone']),
         rows: rows
@@ -482,7 +482,7 @@
           { key: 'event', label: 'Event' },
           { key: 'type', label: 'Type' },
           { key: 'date', label: 'Date' },
-          { key: 'attendance', label: 'Attendee count' }
+          { key: 'attendance', label: 'Visits' }
         ],
         rows: eventRows
       };

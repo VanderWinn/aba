@@ -66,10 +66,18 @@
       (context ? '<p class="share-line">' + escapeHtml(context) + '</p>' : '');
   }
 
-  function card(title, key, body, extra, drill) {
-    return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + hint(title, key) +
-      '</h2><button type="button" class="open" data-drill="' + drill + '"><span>Open</span> ' + hint('', 'Open', true) + '<b aria-hidden="true">›</b></button></div><div class="bodycol">' +
-      body + '</div></section>';
+  function card(title, key, body, extra, drill, linkLabel) {
+    var link = '';
+    if (linkLabel) {
+      var jump = String(drill || '');
+      var attr = jump.indexOf('page:') === 0
+        ? 'data-page="' + jump.slice(5) + '"'
+        : 'data-drill="' + escapeHtml(jump) + '"';
+      link = '<button type="button" class="detail-link" ' + attr + '>' + escapeHtml(linkLabel) + '</button>';
+    }
+    var icon = key ? hint('', key, true) : '';
+    return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + escapeHtml(title) + icon +
+      '</h2>' + link + '</div><div class="bodycol">' + body + '</div></section>';
   }
 
   function niceMax(values) {
@@ -81,13 +89,45 @@
     return Math.ceil(max * 1.2 / 10) * 10;
   }
 
-  function yearLegend(parts, items) {
-    var legendFont = 'font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif"';
+  function patternDefs(items) {
+    return '<defs>' + items.map(function (item, index) {
+      var id = 'pat' + index;
+      var color = item.color || TEAL;
+      var base = '<rect width="6" height="6" fill="' + color + '"/>';
+      if (item.pattern === 'stripe') {
+        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 6 L6 0" stroke="#ffffff" stroke-width="1.6"/></pattern>';
+      }
+      if (item.pattern === 'dot') {
+        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<circle cx="1.3" cy="1.3" r="1.15" fill="#ffffff"/></pattern>';
+      }
+      if (item.pattern === 'diag') {
+        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 6 L6 0 M-1 1 L1 -1 M5 7 L7 5" stroke="#ffffff" stroke-width="1.3"/></pattern>';
+      }
+      if (item.pattern === 'cross') {
+        return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '<path d="M0 3 H6 M3 0 V6" stroke="#ffffff" stroke-width="1.2"/></pattern>';
+      }
+      return '<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse">' + base + '</pattern>';
+    }).join('') + '</defs>';
+  }
+
+  function patternFill(index) {
+    return 'url(#pat' + index + ')';
+  }
+
+  function yearLegend(parts, items, gainedLost) {
+    var legendFont = 'font-size="11" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif"';
     var x = 8;
-    items.forEach(function (item) {
-      parts.push('<rect x="' + x + '" y="6" width="9" height="9" rx="1" fill="' + item.color + '"/>');
-      parts.push('<text x="' + (x + 13) + '" y="14" ' + legendFont + '>' + escapeHtml(item.label) + '</text>');
-      x += 13 + item.label.length * 6.6 + 14;
+    if (gainedLost) {
+      parts.push('<text x="' + x + '" y="14" ' + legendFont + ' font-weight="700">Gained</text>');
+      x += 54;
+      parts.push('<rect x="' + x + '" y="5" width="10" height="10" fill="#3F768B" opacity="0.4"/>');
+      parts.push('<text x="' + (x + 14) + '" y="14" ' + legendFont + ' font-weight="700">Lost</text>');
+      x += 46;
+    }
+    items.forEach(function (item, index) {
+      parts.push('<rect x="' + x + '" y="5" width="10" height="10" rx="1" fill="' + patternFill(index) + '" stroke="' + item.color + '" stroke-width="0.6"/>');
+      parts.push('<text x="' + (x + 14) + '" y="14" ' + legendFont + '>' + escapeHtml(item.label) + '</text>');
+      x += 14 + String(item.label || '').length * 6.4 + 12;
     });
   }
 
@@ -107,14 +147,14 @@
     var bw = Math.max(18, Math.min(48, (w - 40 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var parts = ['<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
-    yearLegend(parts, series);
+    var parts = [patternDefs(series), '<line x1="8" y1="' + mid + '" x2="' + (w - 8) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
+    yearLegend(parts, series, true);
     series.forEach(function (bar, index) {
       var x = x0 + index * (bw + gap);
       var up = (bar.joins || 0) * sc;
       var down = (bar.losses || 0) * sc;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.45"/>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + patternFill(index) + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + patternFill(index) + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
       if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
@@ -134,13 +174,13 @@
     var x0 = (w - total) / 2;
     var base = 124;
     var plot = 78;
-    var parts = [];
-    yearLegend(parts, bars);
+    var parts = [patternDefs(bars)];
+    yearLegend(parts, bars, false);
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
       var y = base - height;
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + patternFill(index) + '"><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.value || 0) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
@@ -158,8 +198,8 @@
     var plot = 82;
     var slot = (w - 16) / groups.length;
     var bw = Math.max(6, Math.min(16, (slot - 10) / sample.length));
-    var parts = [];
-    yearLegend(parts, sample);
+    var parts = [patternDefs(sample)];
+    yearLegend(parts, sample, key === 'joins');
     groups.forEach(function (group, index) {
       var left = 8 + index * slot + (slot - bw * group.bars.length) / 2;
       group.bars.forEach(function (bar, barIndex) {
@@ -167,7 +207,7 @@
         var height = ((bar[key] || 0) / max) * plot;
         var x = left + barIndex * bw;
         var y = base - height;
-        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + bar.color + '"/>');
+        parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + patternFill(barIndex) + '" opacity="' + (key === 'joins' ? '1' : '1') + '"><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>');
       });
       parts.push('<text x="' + (8 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
     });
@@ -388,57 +428,6 @@ function stepControl(step, enabled, compact, attrs) {
     (enabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
 }
 
-function yearMenu(view) {
-    var ui = view.ui || {};
-    var open = ui.openMenu === 'year' && view.yearEnabled !== false;
-    var selected = view.chosenYears || [];
-    var summary = selected.length > 2 ? selected.length + ' years' : selected.map(function (year) { return 'FY' + year; }).join(', ');
-    if (!summary) summary = 'Fiscal years';
-    var boxes = (view.years || []).map(function (year) {
-      var on = selected.indexOf(year) !== -1;
-      return '<label class="check"><input type="checkbox" data-year-option="' + year + '"' + (on ? ' checked' : '') + (view.yearEnabled === false ? ' disabled' : '') + '> FY' + year + '</label>';
-    }).join('');
-    return '<div class="multi year-menu' + (open ? ' is-open' : '') + (view.yearEnabled === false ? ' is-off' : '') + '" data-menu="year">' +
-      '<button type="button" class="multi-face" data-menu-toggle="year" aria-expanded="' + open + '" aria-label="Fiscal year"' + (view.yearEnabled === false ? ' disabled' : '') + '>' + escapeHtml(summary) + '</button>' +
-      '<div class="multi-pop"' + (open ? '' : ' hidden') + '>' +
-      '<div class="multi-actions"><button type="button" data-select-all="year">Select all</button><button type="button" data-clear-all="year">Clear all</button></div>' +
-      '<div class="multi-list">' + boxes + '</div></div></div>';
-  }
-
-  function yearControl(view, compact) {
-  var step = view.stepper || {
-    id: String(view.year),
-    value: fiscalLabel(view.year),
-    label: 'Fiscal year',
-    options: (view.years || []).map(function (year) {
-      return { id: String(year), label: fiscalLabel(year), year: year };
-    })
-  };
-  return stepControl(step, view.yearEnabled, compact, { step: 'data-year-step', select: 'data-year-select' });
-}
-
-function periodControl(view) {
-    var items = [
-      ['year', 'Year', 'Year'],
-      ['quarter', 'Quarter', 'Quarter'],
-      ['month', 'Month', 'Month'],
-      ['last12', 'Last 12 months', 'Last 12 months (period)']
-    ];
-    return '<div class="pseg" role="group" aria-label="Period">' + items.map(function (item) {
-      var on = view.period === item[0];
-      return '<button type="button" data-period="' + item[0] + '"' + (on ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
-        escapeHtml(item[1]) + '<span class="tip" role="tooltip"><strong>' + escapeHtml(item[1]) + '</strong>' + escapeHtml(model.DEFS[item[2]] || '') + '</span></button>';
-    }).join('') + '</div>';
-  }
-
-  function docLink(item) {
-    if (!item.href) {
-      return '<button type="button" class="' + item.className + '" data-more>' + item.label + '</button>';
-    }
-    var external = /^https?:/i.test(item.href);
-    return '<a class="' + item.className + '" href="' + escapeHtml(item.href) + '"' +
-      (external ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + item.label + '</a>';
-  }
 
   function docsOf(view) {
     var found = view.documents || {};
@@ -458,77 +447,129 @@ function periodControl(view) {
     };
   }
 
-  function moreMenu(docs) {
-    var links = (docs.extras || []).map(function (item) {
-      return '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.title) + '</a>';
-    }).join('');
-    if (!links) links = '<p>No other documents are listed yet.</p>';
-    return '<div class="more-pop" hidden>' + links + '</div>';
+  function docItem(label, href) {
+    if (!href) return '<p class="doc-missing">' + escapeHtml(label) + ' <span>Not listed yet</span></p>';
+    return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+  }
+
+  function documentsMenu(view) {
+    var docs = docsOf(view);
+    var seen = {};
+    var items = [
+      docItem('Handbook', docs.handbook),
+      docItem('Bylaws', docs.bylaws),
+      docItem('Board minutes', docs.minutes),
+      docItem('Committee roster', docs.roster)
+    ];
+    if (docs.handbook) seen[docs.handbook] = true;
+    if (docs.bylaws) seen[docs.bylaws] = true;
+    if (docs.minutes) seen[docs.minutes] = true;
+    if (docs.roster) seen[docs.roster] = true;
+    (docs.extras || []).forEach(function (item) {
+      if (!item || !item.url || seen[item.url]) return;
+      seen[item.url] = true;
+      items.push(docItem(item.title, item.url));
+    });
+    return '<div class="docs-menu"><button type="button" class="nav-link" data-more aria-haspopup="true">Documents</button><div class="more-pop" hidden>' + items.join('') + '</div></div>';
   }
 
   function docbar(view) {
-    var docs = docsOf(view);
     var signup = 'https://vanderwinn.github.io/aba-hospitality-signup/';
-    var pills = [
-      { label: 'Handbook', href: docs.handbook, className: 'pill' },
-      { label: 'Sign-up sheet', href: signup, className: 'pill' },
-      { label: 'Bylaws', href: docs.bylaws, className: 'pill' },
-      { label: 'Board minutes', href: docs.minutes, className: 'pill' },
-      { label: 'Committee roster', href: docs.roster, className: 'pill' },
-      { label: '⋯ More', href: '', className: 'pill' }
-    ];
-    var icons = [
-      { label: 'H', name: 'Handbook', href: docs.handbook, className: 'icon-btn' },
-      { label: 'S', name: 'Sign-up sheet', href: signup, className: 'icon-btn' },
-      { label: 'B', name: 'Bylaws', href: docs.bylaws, className: 'icon-btn' },
-      { label: '⋯', name: 'More', href: '', className: 'icon-btn more-icon' }
-    ];
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
     var mark = '<a class="mark" href="https://adabusinessassociation.com/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website">' +
       '<img src="../assets/aba-logo.png" alt="Ada Business Association website"></a>';
-    return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="../">' +
-      '<span class="brand-full">Board &amp; Committee Portal</span>' +
-      '<span class="brand-short">Board &amp; Committee Portal</span></a>' + badge + '</div>' +
-      '<div class="docs docs-full"><span class="lbl">Documents ' + hint('', 'Documents', true) + '</span>' +
-      pills.map(docLink).join('') + moreMenu(docs) + '</div>' +
-      '<div class="docs docs-short">' + icons.map(function (item) {
-        var node = docLink({ label: item.label, href: item.href, className: item.className });
-        return node.replace('>' + item.label, ' aria-label="' + escapeHtml(item.name) + '">' + item.label);
-      }).join('') + moreMenu(docs) + '</div></header>';
+    var onDash = ' class="nav-link on" aria-current="page"';
+    return '<header class="docbar"><div class="brand-wrap">' + mark +
+      '<a class="brand" href="../"><span class="brand-full">Board &amp; Committee Portal</span><span class="brand-short">Board portal</span></a>' +
+      badge + '</div><nav class="topnav" aria-label="Portal">' +
+      '<button type="button" data-page="overview"' + onDash + '>Dashboard</button>' +
+      '<a class="nav-link" href="' + signup + '" target="_blank" rel="noopener noreferrer">Hospitality Sign-Up</a>' +
+      documentsMenu(view) + '</nav></header>';
   }
 
-  function daterow(view) {
-    var bounds = model.fiscalBounds(view.year);
-    var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearMenu(view);
-    var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
-    var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
-    return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearMenu(view) + periodControl(view) +
-      '</div></div>' +
-      '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
+  function viewTabs(view) {
+    var tabs = [['overview', 'Overview'], ['membership', 'Membership'], ['events', 'Events &amp; Attendance']];
+    return '<div class="view-tabs" role="tablist" aria-label="Dashboard views">' + tabs.map(function (tab) {
+      var on = (view.page || 'overview') === tab[0];
+      return '<button type="button" role="tab" data-page="' + tab[0] + '"' + (on ? ' class="on" aria-selected="true"' : ' aria-selected="false"') + '>' +
+        (on ? '<span class="tick" aria-hidden="true">✓</span> ' : '') + tab[1] + '</button>';
+    }).join('') + '</div>';
   }
 
-  function selectedTypes(view) {
-    if (view.eventTypes && view.eventTypes.length) return view.eventTypes;
-    return view.eventType ? [view.eventType] : [];
+  function rangeLabel(view) {
+    if (view.rangeKind === 'last12') return 'Last 12 months';
+    if (view.rangeKind === 'last3') return 'Last 3 fiscal years';
+    if (view.rangeKind === 'custom') {
+      if (view.from || view.to) {
+        return (view.from ? model.formatDate(view.from) : 'Start') + ' – ' + (view.to ? model.formatDate(view.to) : 'Today');
+      }
+      var years = view.chosenYears || [];
+      if (!years.length) return 'Custom';
+      if (years.length > 2) return years.length + ' fiscal years';
+      return years.map(function (year) { return 'FY' + year; }).join(', ');
+    }
+    var slice = (view.slices || [])[0];
+    return slice && slice.partial ? 'This fiscal year (YTD)' : 'This fiscal year';
   }
 
-  function typeOn(view, type) {
-    var selected = selectedTypes(view);
-    return type ? selected.indexOf(type) !== -1 : !selected.length;
+  function rangeMenu(view) {
+    var open = (view.ui || {}).openMenu === 'range';
+    var kinds = [['fy', 'This fiscal year'], ['last12', 'Last 12 months'], ['last3', 'Last 3 fiscal years'], ['custom', 'Custom']];
+    var radios = kinds.map(function (item) {
+      var on = view.rangeKind === item[0];
+      return '<label class="check"><input type="radio" name="date-range" data-range="' + item[0] + '"' + (on ? ' checked' : '') + '> ' + item[1] + (on ? ' <span class="tick">✓</span>' : '') + '</label>';
+    }).join('');
+    var custom = '';
+    if (view.rangeKind === 'custom') {
+      var boxes = (view.years || []).map(function (year) {
+        var on = (view.chosenYears || []).indexOf(year) !== -1;
+        return '<label class="check"><input type="checkbox" data-year-option="' + year + '"' + (on ? ' checked' : '') + '> FY' + year + '</label>';
+      }).join('');
+      custom = '<div class="custom-range"><p class="custom-label">Fiscal years</p>' + boxes +
+        '<label class="date-field">From <input type="date" data-from value="' + escapeHtml(view.from || '') + '" aria-label="From date"></label>' +
+        '<label class="date-field">To <input type="date" data-to value="' + escapeHtml(view.to || '') + '" aria-label="To date"></label></div>';
+    }
+    return '<div class="multi range-menu' + (open ? ' is-open' : '') + '" data-menu="range">' +
+      '<button type="button" class="multi-face" data-menu-toggle="range" aria-expanded="' + (open ? 'true' : 'false') + '" aria-label="Date range">' + escapeHtml(rangeLabel(view)) + '</button>' +
+      '<div class="multi-pop"' + (open ? '' : ' hidden') + '><p class="custom-label">Date range</p>' + radios + custom + '</div></div>';
+  }
+
+  function groupControl(view) {
+    var items = [['month', 'Month'], ['quarter', 'Quarter'], ['year', 'Year']];
+    return '<div class="pseg" role="group" aria-label="Group by">' + items.map(function (item) {
+      var on = view.group === item[0];
+      return '<button type="button" data-group="' + item[0] + '"' + (on ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
+        (on ? '<span class="tick" aria-hidden="true">✓</span> ' : '') + item[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function controls(view) {
+    var clear = view.filtersActive ? '<button type="button" class="clear-filters" data-clear-filters>Clear filters</button>' : '';
+    return '<div class="controls"><div class="dgroup"><span class="lab">Date range</span>' + rangeMenu(view) + '</div>' +
+      '<div class="dgroup"><span class="lab">Group by</span>' + groupControl(view) + '</div>' + clear + '</div>';
+  }
+
+  function activeChips(view) {
+    var chips = [];
+    (view.eventTypes || []).forEach(function (type) {
+      chips.push('<button type="button" class="filter-chip" data-clear-type="' + escapeHtml(type) + '">' + escapeHtml(type) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    });
+    (view.companies || []).forEach(function (name) {
+      chips.push('<button type="button" class="filter-chip" data-clear-company="' + escapeHtml(name) + '">' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    });
+    (view.people || []).forEach(function (name) {
+      chips.push('<button type="button" class="filter-chip" data-clear-person="' + escapeHtml(name) + '">' + escapeHtml(name) + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    });
+    if (view.audience === 'Member' || view.audience === 'Guest') {
+      var label = view.audience === 'Member' ? 'Member visits' : 'Guest visits';
+      chips.push('<button type="button" class="filter-chip" data-clear-audience>' + label + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
+    if (!chips.length) return '';
+    return '<div class="filter-chips" aria-label="Active filters">' + chips.join('') + '</div>';
   }
 
   function chipsFor(items, kind) {
-    var list = items || [];
-    if (!list.length) return '';
-    if (list.length > 2) {
-      return '<p class="picked">' + list.length + ' selected</p>';
-    }
-    return '<div class="picked">' + list.map(function (item) {
-      return '<button type="button" class="picked-chip" data-clear-' + kind + '="' + escapeHtml(item) + '">' + escapeHtml(item) + ' ×</button>';
-    }).join('') + '</div>';
+    return '';
   }
 
   function multiMenu(view, kind) {
@@ -549,42 +590,103 @@ function periodControl(view) {
       var on = selected.some(function (item) {
         return item === label || String(item || '').trim().replace(/\s+/g, ' ').toLowerCase() === folded;
       });
-      return '<label class="check"><input type="checkbox" data-' + kind + '-option="' + escapeHtml(label) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(label) + '</label>';
+      return '<label class="check"><input type="checkbox" data-' + kind + '-option="' + escapeHtml(label) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(label) + (on ? ' <span class="tick">✓</span>' : '') + '</label>';
     }).join('') || '<p class="empty-opt">' + (kind === 'company' ? 'No matches' : 'No attendees') + '</p>';
     var listName = kind === 'company' ? 'company' : 'attendee';
     return '<div class="multi' + (open ? ' is-open' : '') + '" data-menu="' + kind + '">' +
-      '<button type="button" class="multi-face" data-menu-toggle="' + kind + '" aria-expanded="' + open + '" aria-label="' + (kind === 'company' ? 'Company' : 'Attendee') + '">' + escapeHtml(summary) + '</button>' +
+      '<button type="button" class="multi-face" data-menu-toggle="' + kind + '" aria-expanded="' + (open ? 'true' : 'false') + '" aria-label="' + (kind === 'company' ? 'Company' : 'Attendee') + '">' + escapeHtml(summary) + '</button>' +
       '<div class="multi-pop"' + (open ? '' : ' hidden') + '>' +
-      '<div class="multi-actions"><button type="button" data-select-all="' + kind + '">Select all</button><button type="button" data-clear-all="' + kind + '">Clear all</button></div>' +
       '<input class="multi-find" data-find="' + kind + '" value="' + escapeHtml(typed) + '" placeholder="Type a name" aria-label="Filter ' + listName + ' list">' +
-      '<div class="multi-list">' + boxes + '</div></div>' +
-      chipsFor(selected, kind) + '</div>';
+      '<div class="multi-list">' + boxes + '</div></div></div>';
   }
 
-  function railFilters(view) {
-    return '<div class="rail-block"><div class="h">' + hint('Company', 'Company') + '</div>' + multiMenu(view, 'company') + '</div>' +
-      '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
+  function eventFilters(view) {
+    var rows = (model.TYPES || []).map(function (type) {
+      var on = (view.eventTypes || []).indexOf(type) !== -1;
+      var count = (view.eventCounts && view.eventCounts[type]) || 0;
+      return '<label class="check tog-check"><input type="checkbox" data-type-box="' + escapeHtml(type) + '"' + (on ? ' checked' : '') + '> <span class="tog-label">' + escapeHtml(type) + '</span>' +
+        (on ? ' <span class="tick">✓</span>' : '') + ' <span class="n">' + count + '</span></label>';
+    }).join('');
+    var allCount = (view.eventCounts && view.eventCounts.all) || 0;
+    var allLine = (view.eventTypes || []).length ? '' : '<p class="all-types"><span class="tick">✓</span> All event types, none checked</p>';
+    return '<div class="rail-block"><div class="h">Event type</div><p class="count-note">Counts are events in this date range. All means none checked.</p>' +
+      '<p class="range-count">All types in this range <b>' + allCount + '</b></p>' + allLine + rows + '</div>' +
+      '<div class="rail-block"><div class="h">Company</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'company') + '</div>' +
+      '<div class="rail-block"><div class="h">Attendee</div><p class="count-note">Changes event visits on this page.</p>' + multiMenu(view, 'person') + '</div>';
   }
 
-  function eventTypes(view, chips) {
-    var types = [['', 'All', 'All']].concat(model.TYPES.map(function (type) {
-      return [type, type, type];
-    }));
-    if (chips) {
-      return '<div class="chips"><div class="h">' + hint('Event type', 'Event type') + '</div><div class="chip-row">' +
-        types.map(function (type) {
-          var on = typeOn(view, type[0]);
-          return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +
-            escapeHtml(type[1]) + '</button>';
-        }).join('') + '</div>' + railFilters(view) + '</div>';
+  function hbar(view) {
+    var pie = view.pie || { members: 0, guests: 0, memberPct: 0, guestPct: 0 };
+    function row(audience, label, count, pct) {
+      var on = view.audience === audience;
+      return '<button type="button" class="hbar-row' + (on ? ' is-on' : '') + '" data-audience="' + audience + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="hbar-name">' + label + (on ? ' <span class="tick">✓ Selected</span>' : '') + '</span>' +
+        '<span class="hbar-count">' + count + '</span><span class="hbar-pct">' + pct + '%</span>' +
+        '<span class="hbar-track" aria-hidden="true"><span class="hbar-fill ' + audience.toLowerCase() + '" style="width:' + Math.max(0, Math.min(100, pct)) + '%"></span></span></button>';
     }
-    return '<div class="h">' + hint('Event type', 'Event type') + '</div>' + types.map(function (type) {
-      var on = typeOn(view, type[0]);
-      var count = type[0] ? (view.eventCounts[type[0]] || 0) : view.eventCounts.all;
-      return '<button type="button" class="tog' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +
-        '<span class="sw" aria-hidden="true"></span><span class="tog-label">' + escapeHtml(type[1]) + '</span>' +
-        hint('', type[2], true) + '<span class="n">' + count + '</span></button>';
-    }).join('') + railFilters(view);
+    return '<div class="hbar" role="group" aria-label="Member visits ' + pie.members + ', guest visits ' + pie.guests + '">' +
+      row('Member', 'Member visits', pie.members, pie.memberPct) +
+      row('Guest', 'Guest visits', pie.guests, pie.guestPct) + '</div>';
+  }
+
+  function chartFor(view, kind) {
+    var values = kind === 'events' ? view.eventSeries : view.attendanceSeries;
+    var lastYear = kind === 'events' ? view.eventLastYear : view.attendanceLastYear;
+    var title = kind === 'events' ? 'Events held' : 'Event visits';
+    if (view.group === 'year' && view.yearBars) {
+      var key = kind === 'events' ? 'events' : 'attendance';
+      return yearCountSvg(view.yearBars.map(function (bar) {
+        return { label: bar.label, value: bar[key], color: bar.color, pattern: bar.pattern };
+      }), title);
+    }
+    if (view.groups) return groupedSvg(view.groups, kind === 'events' ? 'events' : 'attendance', title);
+    var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
+    return lineSvg(values, lastYear, labels, title, view.mobile);
+  }
+
+  function gainsChart(view) {
+    if (view.group === 'year') return gainsSvg(view.gains, '', !view.mobile, view.gainLegend);
+    if (view.groups) return groupedSvg(view.groups, 'joins', 'Member gains and losses');
+    return gainsSvg(view.gains, '', !view.mobile && (view.gains || []).length <= 16, view.gainLegend);
+  }
+
+  function ytdLine(view) {
+    return view.ytdNote ? '<p class="ytd-note">' + escapeHtml(view.ytdNote) + '</p>' : '';
+  }
+
+  function gainsCard(view) {
+    return card('Member gains and losses', 'Member Gains and Losses',
+      '<p class="series-key">' + (view.groups && view.group !== 'year' ? 'These bars are members gained.' : 'Solid bars are gained. Pale bars are lost. Each year has its own pattern.') + '</p><div class="chart-slot">' + gainsChart(view) + '</div>',
+      ' card-gains', 'changes', 'View the member list');
+  }
+
+  function overview(view) {
+    return '<div class="kpi-row">' +
+      card('Active member businesses', 'Members', '<p class="kpi-value">' + view.members.value + '</p><p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
+      card('Net membership change', 'Net Gain', '<p class="kpi-value tone-' + (view.net.value > 0 ? 'up' : view.net.value < 0 ? 'down' : 'flat') + '">' + signed(view.net.value) + '</p><p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>', ' card-kpi', 'page:membership', 'View membership details') +
+      card('Events held', 'Events Held', '<p class="kpi-value">' + view.events.value + '</p><p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<p class="kpi-value">' + view.attendance.value + '</p><p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>', ' card-kpi', 'page:events', 'View events and attendance') +
+      '</div>' + ytdLine(view) + '<div class="chart-grid">' + gainsCard(view) +
+      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'page:events', 'View events and attendance') +
+      card('Member and guest visits', 'Attendance Distribution', hbar(view), ' card-pie', 'attendance', 'View the visit list') +
+      '</div>';
+  }
+
+  function membership(view) {
+    return ytdLine(view) + '<div class="detail-grid">' +
+      card('Active member businesses', 'Members', headline(String(view.members.value), 'flat', 'big-members', 'members', '') + '<p class="kpi-caption">' + escapeHtml(view.members.caption || '') + '</p>' + priors(view.members), ' card-members', 'members', 'View the member list') +
+      card('New members', 'New Members', headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers', '') + priors(view.newMembers), '', 'newMembers', 'View who joined') +
+      card('Net membership change', 'Net Gain', headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes', '') + '<p class="kpi-caption">' + escapeHtml(view.net.caption || '') + '</p>' + priors(view.net), '', 'changes', 'View membership change') +
+      gainsCard(view) + '</div>';
+  }
+
+  function eventsPage(view) {
+    return ytdLine(view) + '<div class="detail-grid">' +
+      card('Events held', 'Events Held', headline(String(view.events.value), view.events.tone, 'big-mid', 'events', '') + '<p class="kpi-caption">' + escapeHtml(view.events.caption || '') + '</p>' + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>', ' card-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', '') + '<p class="kpi-caption">' + escapeHtml(view.attendance.caption || '') + '</p><p class="visit-note">' + escapeHtml(view.attendance.note || '') + '</p>' + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>', ' card-attendance', 'attendance', 'View the visit list') +
+      card('Member and guest visits', 'Attendance Distribution', hbar(view), ' card-pie', 'distribution', 'View the visit list') +
+      '</div>';
   }
 
   function drillPanel(view) {
@@ -609,56 +711,22 @@ function periodControl(view) {
       '<div class="drill-scroll"><table class="drill-table"><thead><tr>' + heads + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 
-  function legend() {
-    return '<p class="note"><span style="color:' + MUTED + '">┅</span> last year</p>';
-  }
-
   function render(view) {
     exampleFlags = view.example === true;
-    var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
-    var showBarLabels = !view.mobile && view.buckets.length <= 16;
-    var members = card('Business Members', 'Members',
-      headline(String(view.members.value), view.members.tone, 'big-members', 'members', view.members.context) + priors(view.members),
-      ' card-members', 'members');
-    var fresh = card('New Members', 'New Members',
-      headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers', view.newMembers.context) + priors(view.newMembers),
-      ' pop', 'newMembers');
-    var net = card('Net Gain', 'Net Gain',
-      headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes', view.net.context) + priors(view.net),
-      ' pop', 'changes');
-    var gains = card('Member Gains and Losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + (view.groups ? groupedSvg(view.groups, 'joins', 'Member gains and losses') : gainsSvg(view.gains, view.bucket, showBarLabels, view.gainLegend)) + '</div>',
-      ' card-gains', 'gains');
-    var single = (view.eventSeries || []).length === 1 && view.period !== 'year' && !view.groups;
-    function seriesChart(values, lastYear, kind) {
-      if (view.period === 'year' && view.yearBars) {
-        var key = kind === 'Events held' ? 'events' : 'attendance';
-        return yearCountSvg(view.yearBars.map(function (bar) {
-          return { label: bar.label, value: bar[key], color: bar.color };
-        }), kind);
-      }
-      if (view.groups) return groupedSvg(view.groups, kind === 'Events held' ? 'events' : 'attendance', kind);
-      if (single) return pairSvg((values || [])[0], (lastYear || [])[0], kind, view.gainLegend);
-      return lineSvg(values, lastYear, labels, kind, view.mobile);
-    }
-    var note = (view.period === 'year' || view.groups || single) ? '' : legend();
-    var events = card('Events Held', 'Events Held',
-      headline(String(view.events.value), view.events.tone, 'big-mid', 'events', view.events.context) + priors(view.events) +
-      '<div class="chart-slot">' + seriesChart(view.eventSeries, view.eventLastYear, 'Events held') + '</div>' + note,
-      ' card-events', 'events');
-    var attendance = card('Attendee Count', 'Attendance',
-      headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance', view.attendance.context) + priors(view.attendance) +
-      '<div class="chart-slot">' + seriesChart(view.attendanceSeries, view.attendanceLastYear, 'Attendee Count') + '</div>' + note,
-      ' card-attendance', 'attendance');
-    var pie = card('Attendee Distribution', 'Attendance Distribution',
-      pieSvg(view.pie, view.audience),
-      ' card-pie', 'distribution');
-    return docbar(view) + daterow(view) + '<div class="body" id="content"><aside class="side">' + eventTypes(view, false) +
-      '</aside><div class="main">' + eventTypes(view, true) +
-      '<div class="row row-top">' + members + '<div class="stack">' + fresh + net + '</div>' + gains + '</div>' +
-      '<div class="row row-bottom">' + events + attendance + pie + '</div></div></div>' +
-      '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
-      drillPanel(view);
+    var page = view.page === 'membership' || view.page === 'events' ? view.page : 'overview';
+    var filtersOpen = !!(view.ui && view.ui.filtersOpen);
+    var side = page === 'events'
+      ? '<aside class="side' + (filtersOpen ? ' is-open' : '') + '" id="filters">' + eventFilters(view) + '</aside>'
+      : '';
+    var filterBtn = page === 'events'
+      ? '<button type="button" class="filters-btn" data-filters aria-expanded="' + (filtersOpen ? 'true' : 'false') + '" aria-controls="filters">Filters' + (view.filtersActive ? ' <span class="tick">✓</span>' : '') + '</button>'
+      : '';
+    var body = page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view));
+    var scope = page === 'membership' ? '<p class="scope-note">Event type, company, and attendee do not change these membership numbers.</p>' : '';
+    return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
+      '<p class="context-line">' + escapeHtml(view.contextLine || '') + '</p>' + scope + activeChips(view) + filterBtn +
+      '<div class="body">' + side + '<div class="main" id="content">' + body + '</div></div></div>' +
+      '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }
 
   root.ABADashboardView = { render: render, escapeHtml: escapeHtml };
