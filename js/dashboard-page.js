@@ -437,19 +437,10 @@
   }
 
   function exportName(title, ext) {
-    var slug = String(title || 'records').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'records';
     var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Detroit', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    if (window.ABADirectory && window.ABADirectory.exportFileName) return window.ABADirectory.exportFileName(title, ext, day);
+    var slug = String(title || 'records').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'records';
     return 'aba-' + slug + '-' + day + '.' + ext;
-  }
-
-  function oneLine(value) {
-    return String(value == null ? '' : value).replace(/\r\n|\r|\n/g, ' ');
-  }
-
-  function csvField(value) {
-    var text = oneLine(value);
-    if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
-    return text;
   }
 
   function downloadBlob(name, blob) {
@@ -466,43 +457,13 @@
   function exportShown(kind) {
     if (!ui.drill || !ui.drill.pack) return;
     var pack = ui.drill.pack;
-    var columns = pack.columns || [];
-    var rows = pack.shown || [];
-    var headers = columns.map(function (column) { return column.label; });
-    var data = rows.map(function (row) {
-      return columns.map(function (column) {
-        return oneLine(row[column.key]);
-      });
-    });
     var name = exportName(pack.title, kind === 'csv' ? 'csv' : 'xlsx');
     if (kind === 'csv') {
-      var lines = [headers].concat(data).map(function (row) { return row.map(csvField).join(','); });
-      downloadBlob(name, new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      downloadBlob(name, new Blob([window.ABADirectory.exportCsv(pack)], { type: 'text/csv;charset=utf-8' }));
       return;
     }
-    if (!window.XLSX) return;
-    var sheet = window.XLSX.utils.aoa_to_sheet([headers].concat(data));
-    sheet['!cols'] = headers.map(function (header, index) {
-      var width = String(header).length;
-      data.forEach(function (row) {
-        var size = String(row[index] == null ? '' : row[index]).length;
-        if (size > width) width = size;
-      });
-      return { wch: Math.max(10, width + 2) };
-    });
-    var range = window.XLSX.utils.decode_range(sheet['!ref']);
-    var rowIndex;
-    var column;
-    for (rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
-      for (column = range.s.c; column <= range.e.c; column++) {
-        var cell = sheet[window.XLSX.utils.encode_cell({ r: rowIndex, c: column })];
-        if (!cell) continue;
-        cell.s = { font: { bold: rowIndex === 0 }, alignment: { wrapText: false } };
-      }
-    }
-    var book = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(book, sheet, 'Records');
-    window.XLSX.writeFile(book, name);
+    if (!window.XLSX || !window.ABADirectory.exportWorkbook) return;
+    window.XLSX.writeFile(window.ABADirectory.exportWorkbook(pack, window.XLSX), name);
   }
 
   function onKey(event) {

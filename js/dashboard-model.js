@@ -973,11 +973,15 @@
     var narrowed = identity && directory && directory.narrow;
 
     function countEvents(start, end) {
-      if (narrowed) return directory.narrow.countEvents(start, end, eventTypes, pieAudience, view);
+      if (directory && directory.attendance && directory.narrow) {
+        return directory.narrow.countEvents(start, end, eventTypes, pieAudience, view);
+      }
       return eventsIn(data, start, end, eventTypes, pieAudience, attendance).length;
     }
     function sumAttendance(start, end, audience) {
-      if (narrowed) return directory.narrow.sumAttendance(start, end, eventTypes, audience == null ? pieAudience : audience, view);
+      if (directory && directory.attendance && directory.narrow) {
+        return directory.narrow.sumAttendance(start, end, eventTypes, audience == null ? pieAudience : audience, view);
+      }
       return attendanceSum(eventsIn(data, start, end, eventTypes, '', attendance), attendance, audience == null ? pieAudience : audience);
     }
     function memberStock(start, end) {
@@ -1283,49 +1287,41 @@
       ready: noshowRoll.signups > 0 || rowsHaveStatus || !!(data.signups && data.signups.length)
     };
 
-    var selectedBiz = listOf(view.selectedBusinessTypes);
-    if (selectedBiz.length && directory && directory.businesses && directory.businesses.length) {
-      function bizOn(row) {
-        var cats = row.categories || [];
-        if (!cats.length) return selectedBiz.indexOf('Other / not listed') !== -1;
-        var i;
-        for (i = 0; i < cats.length; i++) if (selectedBiz.indexOf(cats[i]) !== -1) return true;
-        return false;
+    if (root.ABADirectory && root.ABADirectory.memberRecords && directory &&
+        ((directory.membership && directory.membership.length) || (directory.businesses && directory.businesses.length))) {
+      function memberCount(mode, start, end) {
+        return root.ABADirectory.memberRecords(directory, view, { start: start, end: end }, mode).length;
       }
-      function stockBiz(end) {
-        var n = 0;
-        directory.businesses.forEach(function (row) {
-          if (!bizOn(row)) return;
-          if (row.joined && row.joined > end) return;
-          if (row.lost && row.lost <= end) return;
-          n += 1;
-        });
-        return n;
-      }
-      function flowBiz(start, end) {
+      function netCount(start, end) {
+        var rows = root.ABADirectory.memberRecords(directory, view, { start: start, end: end }, 'changes');
         var joinsN = 0;
         var lossesN = 0;
-        directory.businesses.forEach(function (row) {
-          if (!bizOn(row)) return;
-          if (row.joined >= start && row.joined <= end) joinsN += 1;
-          if (row.lost && row.lost >= start && row.lost <= end) lossesN += 1;
+        rows.forEach(function (row) {
+          if (row.status === 'lost') lossesN += 1;
+          else joinsN += 1;
         });
-        return { joins: joinsN, losses: lossesN, net: joinsN - lossesN };
+        return joinsN - lossesN;
       }
-      membersMetric = memberStockComparisons(measure, function (start, end) { return stockBiz(end); });
-      freshMetric = memberFlowComparisons(measure, function (start, end) { return flowBiz(start, end).joins; });
-      netMetric = memberFlowComparisons(measure, function (start, end) { return flowBiz(start, end).net; });
+      membersMetric = memberStockComparisons(measure, function (start, end) { return memberCount('active', start, end); });
+      freshMetric = memberFlowComparisons(measure, function (start, end) { return memberCount('joined', start, end); });
+      netMetric = memberFlowComparisons(measure, function (start, end) { return netCount(start, end); });
       membersMetric.tag = 'as of ' + formatDate(view.range.end);
       gainSeries = gainSeries.map(function (bucket) {
         var bits = String(bucket.id || '').split(':');
         if (bits.length < 2) return bucket;
-        var flow = flowBiz(bits[0], bits[1]);
+        var rows = root.ABADirectory.memberRecords(directory, view, { start: bits[0], end: bits[1] }, 'changes');
+        var joinsN = 0;
+        var lossesN = 0;
+        rows.forEach(function (row) {
+          if (row.status === 'lost') lossesN += 1;
+          else joinsN += 1;
+        });
         return {
           id: bucket.id,
           label: bucket.label,
-          joins: flow.joins,
-          losses: flow.losses,
-          active: stockBiz(bits[1]),
+          joins: joinsN,
+          losses: lossesN,
+          active: memberCount('active', bits[0], bits[1]),
           priorJoins: bucket.priorJoins || 0,
           priorLosses: bucket.priorLosses || 0,
           color: bucket.color,
