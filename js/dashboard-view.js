@@ -106,9 +106,9 @@
     });
   }
 
-  function yearGainSvg(series) {
-    var w = 520;
-    var h = 220;
+  function yearGainSvg(series, w, h) {
+    w = w || 520;
+    h = h || 220;
     var maxUp = 1;
     var maxDown = 1;
     series.forEach(function (bar) {
@@ -130,15 +130,15 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + bar.color + '"><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>');
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + bar.color + '" opacity="0.4"><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>');
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
-      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
-      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
+      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function yearCountSvg(bars, kind) {
-    var w = 420;
-    var h = 132;
+  function yearCountSvg(bars, kind, w, h) {
+    w = w || 420;
+    h = h || 132;
     var max = 1;
     bars.forEach(function (bar) { max = Math.max(max, bar.value || 0); });
     var n = bars.length;
@@ -146,8 +146,8 @@
     var bw = Math.max(22, Math.min(54, (w - 40 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var base = 108;
-    var plot = 68;
+    var base = Math.max(48, h - 22);
+    var plot = Math.max(36, base - 24);
     var parts = [];
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
@@ -186,8 +186,8 @@
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function gainsSvg(series, selectedId, showLabels, legend) {
-    if (series && series.length && series[0].color) return yearGainSvg(series);
+  function gainsSvg(series, selectedId, showLabels, legend, w, h) {
+    if (series && series.length && series[0].color) return yearGainSvg(series, w, h);
     var any = false;
     (series || []).forEach(function (bucket) {
       if (bucket.joins || bucket.losses || bucket.priorJoins || bucket.priorLosses) any = true;
@@ -196,8 +196,8 @@
       return emptyChart(showLabels ? 'is-gains' : 'is-gains-short');
     }
     legend = legend || { current: 'This FY', prior: 'Last FY' };
-    var w = 520;
-    var h = showLabels ? 240 : 220;
+    w = w || 520;
+    h = h || (showLabels ? 240 : 220);
     var labelValues = !!showLabels || series.length <= 6;
     var maxUp = 1;
     var maxDown = 1;
@@ -215,7 +215,7 @@
     var maxPair = n <= 1 ? 132 : (n <= 4 ? 96 : (showLabels ? 52 : 36));
     var pair = Math.min(cw * 0.78, maxPair);
     var bw = Math.max(4, (pair - gap) / 2);
-    var font = showLabels ? 12 : 18;
+    var font = 12;
     var parts = ['<line x1="6" y1="' + mid + '" x2="' + (w - 6) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
@@ -228,7 +228,7 @@
       if (!labelValues) return;
       var cx = x + bw / 2;
       if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
-      if (losses) parts.push(valueText(cx, mid + down + 14, losses, '600'));
+      if (losses) parts.push(valueText(cx, mid + down + 14, losses, '700'));
     }
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
@@ -611,10 +611,10 @@ function stepControl(step, enabled, compact, attrs) {
     return index % 2 === 0 || index === count - 1;
   }
 
-  function solidLineSvg(values, labels, kind, color, compact) {
+  function solidLineSvg(values, labels, kind, color, compact, w, h) {
     var n = values.length || 1;
-    var w = n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420;
-    var h = n > 6 ? (compact ? 180 : 200) : 150;
+    w = w || (n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420);
+    h = h || (n > 6 ? (compact ? 180 : 200) : 150);
     var padX = 22;
     var padTop = 36;
     var yZero = h - 26;
@@ -639,7 +639,7 @@ function stepControl(step, enabled, compact, attrs) {
       parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"/>');
       var crowded = n > 6;
       if (!crowded || index === lastIndex || index === maxIndex) {
-        parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 10).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
+        parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
       }
       if (axisLabelOn(index, n, compact)) {
         parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
@@ -648,11 +648,11 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
-  function multiLineSvg(groups, key, kind, compact) {
+  function multiLineSvg(groups, key, kind, compact, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
-    var w = Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
-    var h = n > 6 ? (compact ? 200 : 220) : 180;
+    w = w || Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
+    h = h || (n > 6 ? (compact ? 200 : 220) : 180);
     var padX = 28;
     var yZero = h - 28;
     var plotTop = 36;
@@ -703,7 +703,7 @@ function stepControl(step, enabled, compact, attrs) {
         var crowded = n > 6 || sample.length > 1;
         if (!crowded || index === lastIndex || index === maxIndex) {
           var dx = (seriesIndex - (sample.length - 1) / 2) * 16;
-          parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y - 12).toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="700" fill="' + seriesBar.color + '" font-family="Montserrat, Raleway, sans-serif">' + (bar[key] || 0) + '</text>');
+          parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + seriesBar.color + '" font-family="Montserrat, Raleway, sans-serif">' + (bar[key] || 0) + '</text>');
         }
       });
       flush();
@@ -715,13 +715,13 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ', one line per fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function groupedGainSvg(groups, compact) {
+  function groupedGainSvg(groups, compact, w, h) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     var seriesCount = Math.max(sample.length, 1);
-    var w = Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
-    var h = compact ? 280 : 230;
-    var labelSize = compact ? 16 : 12;
+    w = w || Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
+    h = h || (compact ? 280 : 230);
+    var labelSize = 12;
     var mid = Math.round(h * 0.52);
     var maxUp = 1;
     var maxDown = 1;
@@ -758,31 +758,31 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains above the line and losses below, by month">' + parts.join('') + '</svg>';
   }
 
-  function chartFor(view, kind) {
+  function chartFor(view, kind, w, h) {
     var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
     var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
     if (view.group === 'month' || view.group === 'quarter') {
-      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile);
+      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, w, h);
       var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
-      return solidLineSvg(values, labels, title, color, view.mobile);
+      return solidLineSvg(values, labels, title, color, view.mobile, w, h);
     }
     if (view.group === 'year' && view.yearBars) {
       return yearCountSvg(view.yearBars.map(function (bar) {
         return { label: bar.label, value: bar[key], color: bar.color };
-      }), title);
+      }), title, w, h);
     }
     if (view.groups) return groupedSvg(view.groups, key, title);
     var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
-    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile);
+    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h);
   }
 
-  function gainsChart(view) {
-    if (view.group === 'year') return gainsSvg(view.gains, '', !view.mobile, view.gainLegend);
-    if (view.groups) return groupedGainSvg(view.groups, view.mobile);
-    return gainsSvg(view.gains, '', !view.mobile && (view.gains || []).length <= 16, view.gainLegend);
+  function gainsChart(view, w, h) {
+    if (view.group === 'year') return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
+    if (view.groups) return groupedGainSvg(view.groups, !!view.mobile, w, h);
+    return gainsSvg(view.gains, '', true, view.gainLegend, w, h);
   }
 
   function ytdLine(view) {
@@ -821,7 +821,7 @@ function stepControl(step, enabled, compact, attrs) {
   function gainsCard(view) {
     var legend = view.group === 'year' ? chartKey(legendItems(view)) : gainPairKey(view);
     return card('Member gains and losses', 'Member Gains and Losses',
-      '<div class="chart-slot">' + gainsChart(view) + '</div>' + legend,
+      '<div class="chart-slot" data-chart="gains">' + gainsChart(view) + '</div>' + legend,
       ' card-gains', 'changes', 'View the member list');
   }
 
@@ -833,8 +833,8 @@ function stepControl(step, enabled, compact, attrs) {
       card('Events held', 'Events Held', '<p class="kpi-num">' + view.events.value + '</p>' + periodTag(null) + (view.events.parts ? priors(view.events) : ''), ' card-kpi kpi-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<p class="kpi-num">' + view.attendance.value + '</p>' + periodTag(null) + (view.attendance.parts ? priors(view.attendance) : ''), ' card-kpi kpi-visits', 'page:events', 'View events and attendance') +
       '</div><div class="chart-grid">' + gainsCard(view) +
-      card('Events held', 'Events Held', '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', 'page:events', 'View events and attendance') +
-      card('Total event visits', 'Attendance', '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
+      card('Events held', 'Events Held', '<div class="chart-slot" data-chart="events">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events', 'page:events', 'View events and attendance') +
+      card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'attendance', 'View the visit list') +
       '</div>';
   }
@@ -859,7 +859,7 @@ function stepControl(step, enabled, compact, attrs) {
     var tag = '<p class="period-tag">of ' + metric.signups + ' sign-ups · ' + metric.pct + '%</p>';
     return card('No-shows', 'No-shows',
       '<p class="kpi-num">' + metric.noShows + '</p>' + tag + (metric.parts ? priors(metric) : '') +
-      '<div class="chart-slot">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
+      '<div class="chart-slot" data-chart="noshows">' + chartFor(view, 'noshows') + '</div>' + chartKey(legendItems(view)),
       ' card-noshow kpi-noshow', 'events', 'View the event list');
   }
 
@@ -875,10 +875,10 @@ function stepControl(step, enabled, compact, attrs) {
     return 'Joined ' + match[1] + ' or earlier';
   }
 
-  function lapseChart(bands) {
+  function lapseChart(bands, w, h) {
     var rows = bands && bands.length ? bands : [];
-    var w = 420;
-    var h = 150;
+    w = w || 420;
+    h = h || 150;
     var max = 1;
     rows.forEach(function (row) { if ((row.lapsed || 0) > max) max = row.lapsed; });
     var n = rows.length || 1;
@@ -886,8 +886,8 @@ function stepControl(step, enabled, compact, attrs) {
     var bw = Math.max(22, Math.min(54, (w - 24 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var base = 124;
-    var plot = 78;
+    var base = Math.max(48, h - 22);
+    var plot = Math.max(40, base - 28);
     var parts = ['<line x1="8" y1="' + base + '" x2="' + (w - 8) + '" y2="' + base + '" stroke="#d5dee2"/>'];
     rows.forEach(function (row, index) {
       var lapsed = row.lapsed || 0;
@@ -901,7 +901,7 @@ function stepControl(step, enabled, compact, attrs) {
       var cx = (x + bw / 2).toFixed(1);
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + barH.toFixed(1) + '" fill="' + color + '"><title>' + lapsed + ' of ' + members + ' ' + pct + '%</title></rect>');
       var labelY = Math.min(y - 6, base - 18);
-      parts.push('<text x="' + cx + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '<tspan font-size="10" font-weight="650" fill="#3d4c50"> ' + pct + '%</tspan></text>');
+      parts.push('<text x="' + cx + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + lapsed + ' of ' + members + '<tspan font-size="12" font-weight="650" fill="#3d4c50"> ' + pct + '%</tspan></text>');
       parts.push('<text x="' + cx + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(row.band) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Lapses by events attended">' + parts.join('') + '</svg>';
@@ -929,14 +929,14 @@ function stepControl(step, enabled, compact, attrs) {
       '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
       '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
-      '<div class="chart-slot">' + lapseChart(risk.lapseByBand) + '</div>',
+      '<div class="chart-slot" data-chart="lapse">' + lapseChart(risk.lapseByBand) + '</div>',
       ' card-renewal kpi-renewal', 'members', 'View the member list', tip);
   }
 
   function eventsPage(view) {
     return '<div class="detail-grid">' +
-      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
-      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
+      card('Events held', 'Events Held', numberBlock(String(view.events.value), view.events.tone) + priors(view.events) + '<div class="chart-slot" data-chart="events">' + chartFor(view, 'events') + '</div>' + chartKey(legendItems(view)), ' card-events kpi-events', 'events', 'View the event list') +
+      card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + priors(view.attendance) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
       card('Member and guest visits', 'Attendance Distribution', visitDonut(view), ' card-pie', 'distribution', 'View the visit list') +
@@ -986,5 +986,34 @@ function stepControl(step, enabled, compact, attrs) {
       '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' + drillPanel(view);
   }
 
-  root.ABADashboardView = { render: render, escapeHtml: escapeHtml };
+  var chartObserver = null;
+
+  function fitCharts(root, view) {
+    if (!root || !view) return;
+    if (chartObserver) chartObserver.disconnect();
+    var hosts = root.querySelectorAll('[data-chart]');
+    function draw(host) {
+      var w = Math.floor(host.clientWidth);
+      var h = Math.floor(host.clientHeight);
+      if (w < 40 || h < 40) return;
+      if (host._chartW === w && host._chartH === h) return;
+      host._chartW = w;
+      host._chartH = h;
+      var kind = host.getAttribute('data-chart');
+      var svg = '';
+      if (kind === 'gains') svg = gainsChart(view, w, h);
+      else if (kind === 'lapse') svg = lapseChart((view.renewalRisk && view.renewalRisk.lapseByBand) || [], w, h);
+      else svg = chartFor(view, kind, w, h);
+      host.innerHTML = svg;
+    }
+    Array.prototype.forEach.call(hosts, draw);
+    if (typeof ResizeObserver === 'function') {
+      chartObserver = new ResizeObserver(function (entries) {
+        entries.forEach(function (entry) { draw(entry.target); });
+      });
+      Array.prototype.forEach.call(hosts, function (host) { chartObserver.observe(host); });
+    }
+  }
+
+  root.ABADashboardView = { render: render, escapeHtml: escapeHtml, fitCharts: fitCharts };
 })(typeof window !== 'undefined' ? window : globalThis);

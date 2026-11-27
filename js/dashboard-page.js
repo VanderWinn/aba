@@ -160,6 +160,7 @@
     var dashRoot = document.getElementById('dash');
     dashRoot.classList.toggle('page-overview', (view.page || 'overview') === 'overview');
     dashRoot.innerHTML = viewApi.render(view);
+    if (viewApi.fitCharts) viewApi.fitCharts(dashRoot, view);
     if (restore) {
       var node = null;
       if (restore.kind === 'find') node = visibleNode('[data-find="' + restore.menu + '"]');

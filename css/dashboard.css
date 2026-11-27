@@ -1184,7 +1184,7 @@ select:focus-visible {
 .pr .pv { font-size: var(--year-value-size); margin-top: 4px; }
 .pr .share { font-size: var(--year-pct-size); font-weight: 650; color: #3d4c50; }
 .chart-key, .donut-label {
-  font-size: var(--legend-size);
+  font-size: 12px;
   font-weight: 650;
   color: #3d4c50;
 }
