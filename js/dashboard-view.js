@@ -138,7 +138,7 @@
 
   function yearCountSvg(bars, kind) {
     var w = 420;
-    var h = 150;
+    var h = 132;
     var max = 1;
     bars.forEach(function (bar) { max = Math.max(max, bar.value || 0); });
     var n = bars.length;
@@ -146,8 +146,8 @@
     var bw = Math.max(22, Math.min(54, (w - 40 - gap * (n - 1)) / n));
     var total = n * bw + (n - 1) * gap;
     var x0 = (w - total) / 2;
-    var base = 124;
-    var plot = 78;
+    var base = 108;
+    var plot = 68;
     var parts = [];
     bars.forEach(function (bar, index) {
       var height = ((bar.value || 0) / max) * plot;
@@ -197,7 +197,7 @@
     }
     legend = legend || { current: 'This FY', prior: 'Last FY' };
     var w = 520;
-    var h = showLabels ? 340 : 150;
+    var h = showLabels ? 240 : 132;
     var labelValues = !!showLabels || series.length <= 6;
     var maxUp = 1;
     var maxDown = 1;
@@ -215,7 +215,7 @@
     var maxPair = n <= 1 ? 132 : (n <= 4 ? 96 : (showLabels ? 52 : 36));
     var pair = Math.min(cw * 0.78, maxPair);
     var bw = Math.max(4, (pair - gap) / 2);
-    var font = showLabels ? 12 : 10;
+    var font = 12;
     var parts = ['<line x1="6" y1="' + mid + '" x2="' + (w - 6) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
@@ -320,7 +320,7 @@ function pairSvg(current, prior, kind, legend) {
       }
       var showLabel = n <= 16 || index % 2 === 0 || index === n - 1;
       if (showLabel) {
-        parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 3) + '" text-anchor="middle" font-size="' + (n > 20 ? 9 : 12) + '" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
+        parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 3) + '" text-anchor="middle" font-size="12" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
       }
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
@@ -623,7 +623,7 @@ function stepControl(step, enabled, compact, attrs) {
   function solidLineSvg(values, labels, kind, color, compact) {
     var n = values.length || 1;
     var w = n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420;
-    var h = n > 6 ? (compact ? 230 : 260) : 180;
+    var h = n > 6 ? (compact ? 180 : 200) : 150;
     var padX = 22;
     var padTop = 36;
     var yZero = h - 26;
@@ -661,7 +661,7 @@ function stepControl(step, enabled, compact, attrs) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     var w = Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
-    var h = n > 6 ? (compact ? 280 : 320) : 230;
+    var h = n > 6 ? (compact ? 200 : 220) : 180;
     var padX = 28;
     var yZero = h - 28;
     var plotTop = 36;
@@ -729,7 +729,7 @@ function stepControl(step, enabled, compact, attrs) {
     var n = groups.length || 1;
     var seriesCount = Math.max(sample.length, 1);
     var w = Math.max(compact ? 420 : 560, n * (compact ? 40 : 52));
-    var h = compact ? 300 : 340;
+    var h = compact ? 210 : 230;
     var mid = Math.round(h * 0.5);
     var maxUp = 1;
     var maxDown = 1;
