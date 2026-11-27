@@ -4,6 +4,7 @@
 
   var model = root.ABADashboard;
   var TEAL = '#3F768B';
+  var YTD = '#C4841D';
   var CORAL = '#B84734';
   var MUTED = '#7D949C';
   var PRIOR_LOSS = '#8A9094';
@@ -208,7 +209,8 @@
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
       bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS);
       var currentX = slot + bw + gap;
-      bars(currentX, bucket.joins || 0, bucket.losses || 0, TEAL, CLAY);
+      var currentUp = index === series.length - 1 ? YTD : TEAL;
+      bars(currentX, bucket.joins || 0, bucket.losses || 0, currentUp, CLAY);
       var labelSize = font;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');

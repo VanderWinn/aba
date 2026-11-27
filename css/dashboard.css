@@ -1071,8 +1071,6 @@ select:focus-visible {
 .card.kpi-net { border-top-color: #24785F; background: #f4faf7; }
 .card.kpi-net .kpi-num { color: #1d6b52; }
 .card.kpi-net .tone-down { color: #D01F25; }
-.card.kpi-events { border-top-color: #C4841D; background: #fbf7ef; }
-.card.kpi-events .kpi-num { color: #7A5410; }
 .card.kpi-visits { border-top-color: #3D5A80; background: #f4f7fb; }
 .card.kpi-visits .kpi-num { color: #2C4464; }
 .card.kpi-noshow { border-top-color: #6B4C7A; background: #f8f4fa; }
