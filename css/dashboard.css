@@ -539,7 +539,7 @@ select:focus-visible {
 
 .pr {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   justify-content: center;
   align-items: flex-end;
@@ -1181,7 +1181,7 @@ select:focus-visible {
   align-items: flex-start;
 }
 .pr .pl { font-size: var(--year-label-size); }
-.pr .pv { font-size: var(--year-value-size); margin-top: 4px; }
+.pr .pv { font-size: var(--year-value-size); margin-top: 2px; }
 .pr .share { font-size: var(--year-pct-size); font-weight: 650; color: #3d4c50; }
 .chart-key, .donut-label {
   font-size: 12px;

@@ -35,13 +35,6 @@
     return '0';
   }
 
-  function delta(current, prior) {
-    var diff = current - prior;
-    if (diff > 0) return '<i class="delta delta-up">▲' + diff + '</i>';
-    if (diff < 0) return '<i class="delta delta-down">▼' + Math.abs(diff) + '</i>';
-    return '<i class="delta delta-flat">●0</i>';
-  }
-
   function priors(metric) {
     if (metric.parts && metric.parts.length) {
       return '<div class="pr">' + metric.parts.map(function (part) {
@@ -57,7 +50,7 @@
     ];
     return '<div class="pr">' + cells.map(function (cell) {
       return '<div><div class="pl">' + escapeHtml(cell[0]) + '</div><div class="pv">' +
-        cell[1] + delta(metric.value, cell[1]) + '</div></div>';
+        cell[1] + '</div></div>';
     }).join('') + '</div>';
   }
 
