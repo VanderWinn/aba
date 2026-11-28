@@ -1409,7 +1409,7 @@
     if (directory && directory.attendance && directory.narrow) {
       var memberVisits = (!pieAudience || pieAudience === 'Member') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Member', view) : 0;
       var guestVisits = (!pieAudience || pieAudience === 'Guest') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Guest', view) : 0;
-      if (pieAudience === 'No-show') {
+      if (pieAudience === 'No-show' || view.involvement === 'noshows') {
         memberVisits = 0;
         guestVisits = 0;
       }

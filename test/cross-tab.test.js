@@ -285,6 +285,25 @@ test('every filter narrows every tab, and the zero-visit bar is red', () => {
   }, null, 2));
 });
 
+test('a no-shows point leaves visits at zero and uses the segment sign-up denominator', () => {
+  const home = homeView();
+  const november = (home.monthBuckets || []).filter(function (bucket) {
+    return String(bucket.id || '').indexOf('2026-11-01:') === 0;
+  })[0];
+  assert.ok(november, 'November bucket');
+  const open = viewOf(Object.assign({}, dash.defaultState(source), { bucket: november.id }));
+  assert.ok(open.attendance.value > 0);
+  const point = viewOf(Object.assign({}, dash.defaultState(source), { bucket: november.id, involvement: 'noshows' }));
+  const segment = viewOf(Object.assign({}, dash.defaultState(source), { bucket: november.id, audience: 'No-show' }));
+  assert.equal(point.attendance.value, 0);
+  assert.equal(segment.attendance.value, 0);
+  assert.equal(directoryApi.drill(built, 'attendance', point).rows.length, 0);
+  assert.equal(directoryApi.drill(built, 'attendance', segment).rows.length, 0);
+  assert.equal(point.noShows.noShows, segment.noShows.noShows);
+  assert.equal(point.noShows.signups, segment.noShows.signups);
+  assert.equal((point.pie.members || 0) + (point.pie.guests || 0), 0);
+});
+
 test('clicking every mark keeps the rendered list on the card', async () => {
   const { chromium } = require('/tmp/pw/node_modules/playwright-core');
   const portal = JSON.parse(fs.readFileSync(path.join(root, 'portal.json'), 'utf8'));

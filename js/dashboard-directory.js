@@ -941,8 +941,9 @@
       return Object.keys(ids).length;
     },
     sumAttendance: function (start, end, eventTypes, audience, view) {
-      if (audience === 'No-show') return 0;
-      return attendanceRows(view.directory, start, end, eventTypes, audience, view).length;
+      var effective = eventAudience(audience, view);
+      if (effective === 'No-show') return 0;
+      return attendanceRows(view.directory, start, end, eventTypes, effective, view).length;
     },
     events: function (start, end, eventTypes, audience, view) {
       var map = {};
@@ -1121,7 +1122,8 @@
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     if (kind === 'attendance' || kind === 'distribution') {
-      var found = audience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
+      var visitAudience = eventAudience(audience, view);
+      var found = visitAudience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, visitAudience, view);
       var rows = directory.live ? found : withContacts(found);
       var visitTitle = 'Event visits';
       if (eventTypes.length === 1) visitTitle = eventTypes[0] + ' visits';
