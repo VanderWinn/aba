@@ -93,8 +93,7 @@ function marksOn(page) {
 }
 
 function inputMarks() {
-  const companies = (built.companies || []).slice(0, 2);
-  if (companies.indexOf('Juniper Goods') === -1) companies.push('Juniper Goods');
+  const companies = ['Ada River Cafe', 'Juniper Goods'];
   const people = (built.people || []).slice(0, 2).map(function (person) { return person.name; });
   return companies.map(function (company) {
     return { side: 'event', action: { type: 'companies', companies: [company] } };
@@ -234,7 +233,11 @@ test('every filter narrows every tab, and the zero-visit bar is red', () => {
   marks.forEach(function (mark) {
     const state = apply(dash.defaultState(source), mark.action);
     const view = checkState(state, actionKey(mark.action));
-    if (view.members.value !== home.members.value || view.events.value !== home.events.value || view.attendance.value !== home.attendance.value || view.noShows.noShows !== home.noShows.noShows || view.renewalRisk.zeroAttendance !== home.renewalRisk.zeroAttendance) {
+    if (mark.side === 'event') {
+      assert.notEqual(view.events.value, home.events.value, actionKey(mark.action) + ' events held');
+      assert.notEqual(view.noShows.signups, home.noShows.signups, actionKey(mark.action) + ' sign-ups');
+    }
+    if (view.members.value !== home.members.value || view.events.value !== home.events.value || view.attendance.value !== home.attendance.value || view.noShows.noShows !== home.noShows.noShows || view.noShows.signups !== home.noShows.signups || view.renewalRisk.zeroAttendance !== home.renewalRisk.zeroAttendance) {
       narrowed += 1;
     }
   });
@@ -250,6 +253,13 @@ test('every filter narrows every tab, and the zero-visit bar is red', () => {
   const kept = checkState(Object.assign({}, dash.defaultState(source), { companies: ['Juniper Goods'] }), 'quiet company');
   assert.ok(quiet.members.value > 0 && quiet.members.value < home.members.value);
   assert.equal(quiet.attendance.value, 0);
+  assert.ok(quiet.events.value > 0 && quiet.events.value < home.events.value);
+  assert.ok(quiet.noShows.signups > 0 && quiet.noShows.signups < home.noShows.signups);
+  assert.equal((quiet.noShowSeries || []).reduce(function (sum, value) { return sum + value; }, 0), quiet.noShows.noShows);
+  const membersOnly = checkState(Object.assign({}, dash.defaultState(source), { audience: 'Member' }), 'member audience');
+  const guestsOnly = checkState(Object.assign({}, dash.defaultState(source), { audience: 'Guest' }), 'guest audience');
+  assert.ok(membersOnly.events.value > 0 && membersOnly.events.value < home.events.value);
+  assert.ok(guestsOnly.events.value > 0 && guestsOnly.events.value < home.events.value);
   assert.ok(quiet.noShows.noShows > 0);
   assert.ok(hour.members.value > 0 && hour.members.value < home.members.value);
   assert.ok(kept.members.value > 0 && kept.members.value < home.members.value);
@@ -302,6 +312,15 @@ test('clicking every mark keeps the rendered list on the card', async () => {
     await page.fill('#portal-password', 'example-signin');
     await page.click('#portal-form button[type="submit"]');
     await page.waitForSelector('#dash:not([hidden])');
+
+    async function clickMark(selector) {
+      const node = page.locator(selector).first();
+      if (!(await node.count())) return false;
+      await node.evaluate(function (el) {
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      return true;
+    }
 
     async function show(hash) {
       await page.evaluate(function (next) { history.replaceState(null, '', '#' + next); }, hash);
@@ -388,9 +407,7 @@ test('clicking every mark keeps the rendered list on the card', async () => {
 
     for (const selector of selectors) {
       await show('page=events&range=fy&group=month');
-      const target = page.locator(selector).first();
-      if (!(await target.count())) continue;
-      await target.click({ force: true });
+      if (!(await clickMark(selector))) continue;
       counts.clicks += 1;
       await checkEverywhere();
     }
@@ -407,15 +424,9 @@ test('clicking every mark keeps the rendered list on the card', async () => {
     });
     for (const selector of memberSelectors) {
       await show('page=membership&range=fy&group=month');
-      await page.locator(selector).first().click({ force: true });
+      if (!(await clickMark(selector))) continue;
       counts.clicks += 1;
       await checkEverywhere();
-    }
-
-    async function clickMark(selector) {
-      await page.locator(selector).first().evaluate(function (node) {
-        node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
     }
 
     await show('page=events&range=fy&group=month');
@@ -437,9 +448,7 @@ test('clicking every mark keeps the rendered list on the card', async () => {
     await page.screenshot({ path: '/opt/cursor/artifacts/membership_noshow_segment_1366.png' });
 
     await show('page=events&range=fy&group=month');
-    const november = page.locator('[data-involvement="noshows"][data-period*="2026-11"]').first();
-    if (await november.count()) {
-      await november.click({ force: true });
+    if (await clickMark('[data-involvement="noshows"][data-period*="2026-11"]')) {
       await page.locator('[data-page="membership"]').click();
       await page.waitForSelector('.kpi-num');
       await page.screenshot({ path: '/opt/cursor/artifacts/membership_november_noshows_1366.png' });
