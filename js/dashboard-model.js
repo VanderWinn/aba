@@ -33,20 +33,20 @@
     'Month': 'The dates and the big numbers stay on the current month inside the year at the left, through today. A past year uses June. The charts show each month of that fiscal year separately, July through the current month, each beside the same month last fiscal year. Later months are left off.',
     'Last 12 months (period)': 'Uses the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Reset filters': 'Clears every filter in one click: the year, the period, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
-    'Members': 'Active member businesses at the end of the date range. This count is not changed by event type, company, or attendee. A partial year is the count as of today.',
+    'Members': 'Active member businesses at the end of the date range. Event type, company, and attendee do not change this count. Business type, a renewal-risk group, and a joined or cancelled selection do. A partial year is the count as of today.',
     'New Members': 'Business members who joined during the date range. A partial year counts only through today and is compared with the same dates one year earlier.',
     'Net Gain': 'Business members who joined minus business members who left during the date range. A partial year is year to date and is compared with the same dates last year, not the full prior year.',
     'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
-    'Membership combo': 'Teal bars are new members and red bars are cancelled members for each period in Group by. The line is the active member count at the end of that period, on its own scale at the right. The last point matches Active member businesses.',
-    'Members by business type': 'Active member businesses in each directory category, largest first. A business listed in more than one category is counted in each. Other / not listed is businesses with no category.',
-    'Events Held': 'How many events took place in the date range. Event type, company, and attendee change this number. The counts beside the event types are events in this same date range.',
-    'Attendance': 'Event visits in the date range. A visit is one person counted at one event. The same person at two events is counted twice. This is not a count of unique people. Event type, company, and attendee change this number.',
-    'No-shows': 'People who signed up and were marked no-show. The count is no-shows of sign-ups. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. Company and attendee filters apply when each sign-up has a status. Event totals without a status cannot be split by company.',
-    'Renewal risk': 'Based on one renewal cycle (6/30/2026 deactivations); attendance mostly Lunch & Learn; shows a pattern, not a cause.',
+    'Membership combo': 'Teal bars are new members and red bars are cancelled members for each period in Group by. The line is the active member count. The first point is the opening stock, the day before the range starts. Each later point is the count at the end of that period. The rise or drop from the opening point to the last point equals Net membership change. The last point matches Active member businesses when the range ends today.',
+    'Members by business type': 'A business in more than one category is counted in each bar.',
+    'Events Held': 'How many events took place in the date range. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business. The counts beside the event types are events in this same date range.',
+    'Attendance': 'Event visits in the date range. A visit counts only when status is attended. If status is blank, registration_status is used. A blank or unmarked row is not a visit and not a no-show. One person at one event is one visit. The same person at two events is counted twice. This is not a count of unique people. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business.',
+    'No-shows': 'People who signed up and were marked no-show. The count uses status, or registration_status when status is blank. A blank or unmarked row is not a visit and not a no-show. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. The same filters as the other cards apply, including business type.',
+    'Renewal risk': 'Members in the filtered population with no attended visit in the last 12 months, over that same population. Tenure groups split those members. The 0, 1–2, 3–5, and 6+ bars count members by visits in the prior renewal year, July through June. A guest visit counts toward a business when the visit’s company matches.',
     'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
-    'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers on this view.',
+    'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers. Business type, renewal risk, and a joined or cancelled bar do change the membership numbers, and they also change event visits. A guest visit counts when that visit’s company matches a selected member business.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
-    'Visits and no-shows': 'Each percentage is that group\u2019s share of members, guests, and no-shows together: everyone who signed up and was expected. Choosing members or guests limits the event numbers on this page.',
+    'Visits and no-shows': 'Each percentage is that group\u2019s share of members, guests, and no-shows together: everyone who signed up and was expected. Choosing Members, Guests, or No-shows limits the event numbers on this page. A guest counts when the visit’s company matches a selected member business.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
     'Company': 'Limits event visits on this page to the companies you select. Companies combine with OR. It does not change membership totals.',
     'Attendee': 'Limits event visits on this page to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
@@ -268,7 +268,7 @@
       var my = Math.floor(monthIdx / 12);
       var mm = monthIdx % 12 + 1;
       var letter = MONTHS[mm - 1];
-      if (spanYears) letter = letter + ' \u2019' + String(my).slice(2);
+      if (spanYears) letter = mm === 1 ? '\u2019' + String(my).slice(2) : letter.charAt(0);
       var bucketM = clipBucket(range, iso(my, mm, 1), iso(my, mm, daysInMonth(my, mm)), letter);
       if (bucketM) out.push(bucketM);
       monthIdx += 1;
@@ -580,7 +580,10 @@
       people: [],
       audience: '',
       selectedBusinessTypes: [],
-      bucket: ''
+      bucket: '',
+      flow: '',
+      renewalTenure: '',
+      renewalBand: ''
     };
   }
 
@@ -618,7 +621,7 @@
     }
     var companies = listOf(state && state.companies);
     var people = listOf(state && state.people);
-    var audience = state && (state.audience === 'Member' || state.audience === 'Guest') ? state.audience : '';
+    var audience = state && (state.audience === 'Member' || state.audience === 'Guest' || state.audience === 'No-show') ? state.audience : '';
     return {
       today: picked.today,
       year: year,
@@ -648,7 +651,10 @@
       people: people,
       audience: audience,
       selectedBusinessTypes: listOf(state && state.selectedBusinessTypes),
-      bucket: state && state.bucket ? String(state.bucket) : ''
+      bucket: state && state.bucket ? String(state.bucket) : '',
+      flow: state && (state.flow === 'new' || state.flow === 'lost') ? state.flow : '',
+      renewalTenure: state && (state.renewalTenure === 'newer' || state.renewalTenure === 'longer' || state.renewalTenure === 'other') ? state.renewalTenure : '',
+      renewalBand: state && (state.renewalBand === '0' || state.renewalBand === '1–2' || state.renewalBand === '3–5' || state.renewalBand === '6+') ? state.renewalBand : ''
     };
   }
 
@@ -683,7 +689,10 @@
       people: listOf(state.people),
       audience: state.audience || '',
       selectedBusinessTypes: listOf(state.selectedBusinessTypes),
-      bucket: state.bucket || ''
+      bucket: state.bucket || '',
+      flow: state.flow || '',
+      renewalTenure: state.renewalTenure || '',
+      renewalBand: state.renewalBand || ''
     };
   }
 
@@ -706,6 +715,9 @@
       cleared.audience = '';
       cleared.selectedBusinessTypes = [];
       cleared.bucket = '';
+      cleared.flow = '';
+      cleared.renewalTenure = '';
+      cleared.renewalBand = '';
       if (action.type === 'reset') return defaultState(data);
       return cleared;
     }
@@ -718,12 +730,14 @@
       if (kind !== 'fy' && kind !== 'last12' && kind !== 'last3' && kind !== 'custom') kind = 'fy';
       next.rangeKind = kind;
       next.bucket = '';
+      next.flow = '';
       if (kind === 'custom' && !listOf(next.years).length) next.years = [fiscalYearOf(isISO(data && data.asOf) ? data.asOf : '2026-11-24')];
       return next;
     }
     if (action.type === 'group') {
       if (action.group === 'month' || action.group === 'quarter' || action.group === 'year') next.group = action.group;
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'dates') {
@@ -731,11 +745,13 @@
       next.from = isISO(action.from) ? action.from : '';
       next.to = isISO(action.to) ? action.to : '';
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'period') {
       next.period = action.period;
       next.bucket = '';
+      next.flow = '';
       syncPeriodSlice(data, next);
       return next;
     }
@@ -744,6 +760,7 @@
       next.years = [Number(action.year)];
       next.year = Number(action.year);
       next.bucket = '';
+      next.flow = '';
       syncPeriodSlice(data, next);
       return next;
     }
@@ -754,11 +771,13 @@
       else next.years = normalizeYears(data, incoming.length ? incoming : action.years);
       next.year = next.years.length ? next.years[next.years.length - 1] : fiscalYearOf(isISO(data && data.asOf) ? data.asOf : '2026-11-24');
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'focus') {
       if (next.period === 'last12') return next;
       next.bucket = '';
+      next.flow = '';
       if (action.year) next.year = Number(action.year);
       syncPeriodSlice(data, next);
       return next;
@@ -777,6 +796,7 @@
         next.eventType = '';
       }
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'companies') {
@@ -787,11 +807,13 @@
         next.people = listOf(next.people).filter(function (name) { return allowed[name]; });
       }
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'people') {
       next.people = listOf(action.people);
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'audience') {
@@ -809,13 +831,54 @@
         next.selectedBusinessTypes = pickedTypes;
       }
       next.bucket = '';
+      next.flow = '';
       return next;
     }
     if (action.type === 'bucket') {
-      next.bucket = next.bucket === action.bucket ? '' : (action.bucket || '');
+      var periodId = action.period || action.bucket || '';
+      var flow = action.flow === 'new' || action.flow === 'lost' ? action.flow : '';
+      if (next.bucket === periodId && (next.flow || '') === flow) {
+        next.bucket = '';
+        next.flow = '';
+      } else {
+        next.bucket = periodId;
+        next.flow = flow;
+      }
+      return next;
+    }
+    if (action.type === 'renewalTenure') {
+      var tenure = action.tenure === 'newer' || action.tenure === 'longer' || action.tenure === 'other' ? action.tenure : '';
+      next.renewalTenure = next.renewalTenure === tenure ? '' : tenure;
+      return next;
+    }
+    if (action.type === 'renewalBand') {
+      var band = action.band === '0' || action.band === '1–2' || action.band === '3–5' || action.band === '6+' ? action.band : '';
+      next.renewalBand = next.renewalBand === band ? '' : band;
       return next;
     }
     return next;
+  }
+
+  function encodeHashItem(value) {
+    return encodeURIComponent(encodeURIComponent(String(value)));
+  }
+
+  function decodeHashItem(value) {
+    var current = String(value || '');
+    var i;
+    for (i = 0; i < 2; i++) {
+      if (!/%[0-9A-Fa-f]{2}/.test(current)) break;
+      try {
+        var next = decodeURIComponent(current);
+        if (next === current) break;
+        current = next;
+      } catch (err) { break; }
+    }
+    return current;
+  }
+
+  function decodeHashList(value) {
+    return String(value || '').split(',').map(decodeHashItem).filter(Boolean);
   }
 
   function stateHash(state) {
@@ -832,12 +895,15 @@
     }
     var hashTypes = listOf(state.eventTypes);
     if (!hashTypes.length && state.eventType) hashTypes = [state.eventType];
-    if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeURIComponent).join(','));
+    if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeHashItem).join(','));
     if (state.audience) parts.push('audience=' + encodeURIComponent(state.audience));
-    if (listOf(state.selectedBusinessTypes).length) parts.push('biz=' + listOf(state.selectedBusinessTypes).map(encodeURIComponent).join(','));
-    if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeURIComponent).join(','));
-    if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeURIComponent).join(','));
+    if (listOf(state.selectedBusinessTypes).length) parts.push('biz=' + listOf(state.selectedBusinessTypes).map(encodeHashItem).join(','));
+    if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeHashItem).join(','));
+    if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeHashItem).join(','));
     if (state.bucket) parts.push('bucket=' + encodeURIComponent(state.bucket));
+    if (state.flow === 'new' || state.flow === 'lost') parts.push('flow=' + state.flow);
+    if (state.renewalTenure) parts.push('tenure=' + encodeURIComponent(state.renewalTenure));
+    if (state.renewalBand) parts.push('band=' + encodeURIComponent(state.renewalBand));
     return parts.join('&');
   }
 
@@ -850,15 +916,18 @@
       var bits = pair.split('=');
       var key = bits[0] || '';
       try { key = decodeURIComponent(key); } catch (err) {}
-      var value = bits.slice(1).join('=');
-      try { value = decodeURIComponent(value); } catch (err) {}
-      bag[key] = value;
+      bag[key] = bits.slice(1).join('=');
     });
-    if (bag.page === 'membership' || bag.page === 'events' || bag.page === 'overview') state.page = bag.page;
-    if (bag.range === 'fy' || bag.range === 'last12' || bag.range === 'last3' || bag.range === 'custom') state.rangeKind = bag.range;
-    if (bag.group === 'month' || bag.group === 'quarter' || bag.group === 'year') state.group = bag.group;
-    if (isISO(bag.from)) state.from = bag.from;
-    if (isISO(bag.to)) state.to = bag.to;
+    var pageName = decodeHashItem(bag.page);
+    var rangeName = decodeHashItem(bag.range);
+    var groupName = decodeHashItem(bag.group);
+    var fromDay = decodeHashItem(bag.from);
+    var toDay = decodeHashItem(bag.to);
+    if (pageName === 'membership' || pageName === 'events' || pageName === 'overview') state.page = pageName;
+    if (rangeName === 'fy' || rangeName === 'last12' || rangeName === 'last3' || rangeName === 'custom') state.rangeKind = rangeName;
+    if (groupName === 'month' || groupName === 'quarter' || groupName === 'year') state.group = groupName;
+    if (isISO(fromDay)) state.from = fromDay;
+    if (isISO(toDay)) state.to = toDay;
     if (bag.fys) {
       state.years = String(bag.fys).split(',').map(Number).filter(function (year) { return /^\d{4}$/.test(String(year)); });
       if (!bag.range) state.rangeKind = 'custom';
@@ -877,23 +946,23 @@
       if (!bag.group && bag.period === 'month') state.group = 'month';
     }
     if (bag.type) {
-      var parsedTypes = String(bag.type).split(',').map(function (part) {
-        try { return decodeURIComponent(part); } catch (err) { return part; }
-      }).filter(function (type) { return TYPES.indexOf(type) !== -1; });
+      var parsedTypes = decodeHashList(bag.type).filter(function (type) { return TYPES.indexOf(type) !== -1; });
       state.eventTypes = parsedTypes;
       state.eventType = parsedTypes.length === 1 ? parsedTypes[0] : '';
     }
-    if (bag.companies) state.companies = String(bag.companies).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.people) state.people = String(bag.people).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.audience === 'Member' || bag.audience === 'Guest') state.audience = bag.audience;
-    if (bag.biz) state.selectedBusinessTypes = String(bag.biz).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.bucket && /^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(bag.bucket)) state.bucket = bag.bucket;
+    if (bag.companies) state.companies = decodeHashList(bag.companies);
+    if (bag.people) state.people = decodeHashList(bag.people);
+    var audienceName = decodeHashItem(bag.audience);
+    var bucketName = decodeHashItem(bag.bucket);
+    var flowName = decodeHashItem(bag.flow);
+    var tenureName = decodeHashItem(bag.tenure);
+    var bandName = decodeHashItem(bag.band);
+    if (audienceName === 'Member' || audienceName === 'Guest' || audienceName === 'No-show') state.audience = audienceName;
+    if (bag.biz) state.selectedBusinessTypes = decodeHashList(bag.biz);
+    if (/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(bucketName)) state.bucket = bucketName;
+    if (flowName === 'new' || flowName === 'lost') state.flow = flowName;
+    if (tenureName === 'newer' || tenureName === 'longer' || tenureName === 'other') state.renewalTenure = tenureName;
+    if (bandName === '0' || bandName === '1–2' || bandName === '3–5' || bandName === '6+') state.renewalBand = bandName;
     return state;
   }
 
@@ -965,8 +1034,10 @@
     data = data || {};
     var view = resolveView(data, state || defaultState(data));
     if (directory) view.directory = directory;
+    var focusBits = String(view.bucket || '').split(':');
+    if (focusBits.length === 2 && focusBits[0] <= focusBits[1]) view.focus = { start: focusBits[0], end: focusBits[1] };
     var attendance = attendanceByEvent(data);
-    var measure = view.range;
+    var measure = view.focus || view.range;
     var eventTypes = view.eventTypes;
     var pieAudience = view.audience;
     var identity = view.companies.length || view.people.length;
@@ -1015,10 +1086,28 @@
       signupByEvent[id] = { signups: Number(row.signups) || 0, noShows: Number(row.noShows) || 0 };
     });
     var statusRows = directory && directory.attendance ? directory.attendance : [];
-    var rowsHaveStatus = statusRows.some(function (row) { return row && row.status; });
+    var rowsHaveStatus = statusRows.some(function (row) {
+      return row && (row.status || row.registration_status || row.registrationStatus);
+    });
     function signupWindow(start, end) {
+      if (directory && root.ABADirectory && root.ABADirectory.noShowSummary && rowsHaveStatus) {
+        var summary = root.ABADirectory.noShowSummary(directory, view, start, end);
+        if (summary) {
+          return {
+            signups: summary.signups,
+            noShows: summary.noShows,
+            pct: summary.pct,
+            limited: false,
+            rows: summary.rows
+          };
+        }
+      }
       var booked = 0;
       var missed = 0;
+      var memberFilter = (view.selectedBusinessTypes && view.selectedBusinessTypes.length) || view.flow || view.renewalTenure || view.renewalBand;
+      if (!rowsHaveStatus && memberFilter) {
+        return { signups: 0, noShows: 0, pct: 0, limited: true, rows: [] };
+      }
       if (rowsHaveStatus) {
         statusRows.forEach(function (row) {
           if (!row.date || row.date < start || row.date > end) return;
@@ -1026,6 +1115,12 @@
           if (pieAudience && row.audience && row.audience !== pieAudience) return;
           if (view.companies.length || view.people.length) {
             if (directory.narrow && directory.narrow.keeps && !directory.narrow.keeps(row, view)) return;
+          }
+          if (root.ABADirectory && root.ABADirectory.rowIsSignUp) {
+            if (!root.ABADirectory.rowIsSignUp(row)) return;
+            booked += 1;
+            if (root.ABADirectory.rowIsNoShow(row)) missed += 1;
+            return;
           }
           if (!statusIsSignUp(row.status)) return;
           booked += 1;
@@ -1085,6 +1180,8 @@
     var gainSeries = compareYears ? yearBars.map(function (bar) {
       return {
         id: bar.start + ':' + bar.end,
+        start: bar.start,
+        end: bar.end,
         label: bar.label,
         joins: bar.joins,
         losses: bar.losses,
@@ -1100,12 +1197,17 @@
       var prior = flowSpan(priorSpan.start, priorSpan.end);
       return {
         id: bucket.id,
+        start: bucket.start,
+        end: bucket.end,
         label: bucket.label,
         joins: flow.joins,
         losses: flow.losses,
         active: memberStock(bucket.start, bucket.end),
         priorJoins: prior.joins,
-        priorLosses: prior.losses
+        priorLosses: prior.losses,
+        priorId: priorSpan.start + ':' + priorSpan.end,
+        priorStart: priorSpan.start,
+        priorEnd: priorSpan.end
       };
     });
     var gainLegend = { current: 'This FY', prior: 'Last FY' };
@@ -1173,16 +1275,19 @@
             losses: flow.losses,
             noShows: span ? signupWindow(span.start, span.end).noShows : 0,
             signups: span ? signupWindow(span.start, span.end).signups : 0,
-            skipped: !span
+            skipped: !span,
+            start: span ? span.start : '',
+            end: span ? span.end : ''
           };
         });
         if (bars.some(function (bar) { return !bar.skipped; })) groups.push({ label: slot.label, bars: bars });
       });
     }
 
-    var counted = narrowed
-      ? directory.narrow.events(view.range.start, view.range.end, [], pieAudience, view)
-      : eventsIn(data, view.range.start, view.range.end, '', pieAudience, attendance);
+    var countSpan = (view.focus && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.start)) ? view.focus : view.range;
+    var counted = directory && directory.attendance && directory.narrow
+      ? directory.narrow.events(countSpan.start, countSpan.end, eventTypes, pieAudience, view)
+      : eventsIn(data, countSpan.start, countSpan.end, eventTypes, pieAudience, attendance);
     var typeCounts = { all: counted.length };
     TYPES.forEach(function (type) { typeCounts[type] = 0; });
     counted.forEach(function (event) {
@@ -1191,18 +1296,19 @@
     });
     var pieMembers;
     var pieGuests;
-    if (narrowed) {
-      var pieCounts = directory.narrow.pie(view.range.start, view.range.end, eventTypes, view);
+    if (directory && directory.attendance && directory.narrow) {
+      var pieCounts = directory.narrow.pie(countSpan.start, countSpan.end, eventTypes, view);
       pieMembers = pieCounts.Member;
       pieGuests = pieCounts.Guest;
     } else {
-      var pieEvents = eventsIn(data, view.range.start, view.range.end, eventTypes, '', attendance);
+      var pieEvents = eventsIn(data, countSpan.start, countSpan.end, eventTypes, '', attendance);
       pieMembers = attendanceSum(pieEvents, attendance, 'Member');
       pieGuests = attendanceSum(pieEvents, attendance, 'Guest');
     }
     var pieTotal = pieMembers + pieGuests;
     var memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
-    var multi = yearBars.length > 1;
+    var focused = !!(view.focus && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.start) && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.end));
+    var multi = !focused && yearBars.length > 1;
     var membersMetric = memberStockComparisons(measure, memberStock);
     var freshMetric = memberFlowComparisons(measure, joins);
     var netMetric = memberFlowComparisons(measure, net);
@@ -1239,7 +1345,7 @@
       });
       pieTotal = pieMembers + pieGuests;
       memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
-    } else if (yearBars.length === 1) {
+    } else if (!focused && yearBars.length === 1) {
       var only = { start: yearBars[0].start, end: yearBars[0].end };
       eventsMetric = comparisons(only, countEvents);
       attendanceMetric = comparisons(only, function (start, end) { return sumAttendance(start, end); });
@@ -1268,11 +1374,24 @@
       ? partialBar.label + ' runs through ' + formatDate(partialBar.end) + '. It is compared with ' + formatDate(partialBar.samePoint.start) + '\u2013' + formatDate(partialBar.samePoint.end) + ', not a full fiscal year.'
       : '';
     var periodTag = rangeTitle;
-    membersMetric.tag = 'as of ' + formatDate(view.range.end);
+    membersMetric.tag = 'as of ' + formatDate(measure.end);
     netMetric.tag = periodTag;
     eventsMetric.tag = periodTag;
     attendanceMetric.tag = periodTag;
-    var noshowRoll = signupWindow(view.range.start, view.range.end);
+    if (directory && directory.attendance && directory.narrow) {
+      var memberVisits = (!pieAudience || pieAudience === 'Member') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Member', view) : 0;
+      var guestVisits = (!pieAudience || pieAudience === 'Guest') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Guest', view) : 0;
+      if (pieAudience === 'No-show') {
+        memberVisits = 0;
+        guestVisits = 0;
+      }
+      pieMembers = memberVisits;
+      pieGuests = guestVisits;
+      pieTotal = pieMembers + pieGuests;
+      memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
+    }
+    var noshowSpan = focused ? measure : view.range;
+    var noshowRoll = signupWindow(noshowSpan.start, noshowSpan.end);
     var noshowParts = yearBars.length > 1 ? yearBars.map(function (bar) {
       var pct = bar.signups ? Math.round((bar.noShows / bar.signups) * 100) : 0;
       return { label: bar.label, value: bar.noShows + ' of ' + bar.signups, pct: pct };
@@ -1290,10 +1409,10 @@
     if (root.ABADirectory && root.ABADirectory.memberRecords && directory &&
         ((directory.membership && directory.membership.length) || (directory.businesses && directory.businesses.length))) {
       function memberCount(mode, start, end) {
-        return root.ABADirectory.memberRecords(directory, view, { start: start, end: end }, mode).length;
+        return root.ABADirectory.memberRecords(directory, view, { start: start, end: end, useFlow: true }, mode).length;
       }
       function netCount(start, end) {
-        var rows = root.ABADirectory.memberRecords(directory, view, { start: start, end: end }, 'changes');
+        var rows = root.ABADirectory.memberRecords(directory, view, { start: start, end: end, useFlow: true }, 'changes');
         var joinsN = 0;
         var lossesN = 0;
         rows.forEach(function (row) {
@@ -1305,11 +1424,11 @@
       membersMetric = memberStockComparisons(measure, function (start, end) { return memberCount('active', start, end); });
       freshMetric = memberFlowComparisons(measure, function (start, end) { return memberCount('joined', start, end); });
       netMetric = memberFlowComparisons(measure, function (start, end) { return netCount(start, end); });
-      membersMetric.tag = 'as of ' + formatDate(view.range.end);
+      membersMetric.tag = 'as of ' + formatDate(measure.end);
       gainSeries = gainSeries.map(function (bucket) {
         var bits = String(bucket.id || '').split(':');
         if (bits.length < 2) return bucket;
-        var rows = root.ABADirectory.memberRecords(directory, view, { start: bits[0], end: bits[1] }, 'changes');
+        var rows = root.ABADirectory.memberRecords(directory, view, { start: bits[0], end: bits[1], useFlow: true }, 'changes');
         var joinsN = 0;
         var lossesN = 0;
         rows.forEach(function (row) {
@@ -1318,17 +1437,28 @@
         });
         return {
           id: bucket.id,
+          start: bits[0],
+          end: bits[1],
           label: bucket.label,
           joins: joinsN,
           losses: lossesN,
           active: memberCount('active', bits[0], bits[1]),
           priorJoins: bucket.priorJoins || 0,
           priorLosses: bucket.priorLosses || 0,
+          priorId: bucket.priorId || '',
+          priorStart: bucket.priorStart || '',
+          priorEnd: bucket.priorEnd || '',
           color: bucket.color,
           pattern: bucket.pattern
         };
       });
     }
+
+    var openingDay = addDays(view.range.start, -1);
+    var openingActive = directory && root.ABADirectory && root.ABADirectory.memberRecords &&
+      ((directory.membership && directory.membership.length) || (directory.businesses && directory.businesses.length))
+      ? root.ABADirectory.memberRecords(directory, view, { start: openingDay, end: openingDay, useFlow: true }, 'active').length
+      : stockAt(data, openingDay, 'Member', '');
 
     return {
       example: data.example === true,
@@ -1348,7 +1478,6 @@
       companies: view.companies,
       people: view.people,
       audience: pieAudience,
-      bucket: '',
       buckets: buckets,
       eventCounts: typeCounts,
       chosenYears: chosen,
@@ -1362,14 +1491,39 @@
       slices: view.slices,
       contextLine: contextLine,
       ytdNote: ytdNote,
-      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience || listOf(view.selectedBusinessTypes).length),
+      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience || listOf(view.selectedBusinessTypes).length || view.bucket || view.flow || view.renewalTenure || view.renewalBand),
       selectedBusinessTypes: listOf(view.selectedBusinessTypes),
+      bucket: view.bucket || '',
+      flow: view.flow || '',
+      renewalTenure: view.renewalTenure || '',
+      renewalBand: view.renewalBand || '',
+      focus: view.focus || null,
+      measure: measure,
+      directory: directory ? { companies: directory.companies || [], people: directory.people || [] } : null,
       members: membersMetric,
       newMembers: freshMetric,
       net: netMetric,
       gains: gainSeries,
+      openingActive: openingActive,
       gainLegend: gainLegend,
-      businessTypes: data.businessTypes || [],
+      businessTypes: (function () {
+        if (!(directory && directory.membership && directory.membership.length && root.ABADirectory && root.ABADirectory.memberRecords)) {
+          return data.businessTypes || [];
+        }
+        var lines = root.ABADirectory.memberRecords(directory, view, { start: measure.start, end: measure.end, useFlow: true }, 'active');
+        var counts = {};
+        lines.forEach(function (row) {
+          var parts = String(row.category || '').split(' | ').filter(Boolean);
+          if (!parts.length || (parts.length === 1 && parts[0] === 'Other / not listed')) parts = ['Other / not listed'];
+          var seen = {};
+          parts.forEach(function (name) {
+            if (seen[name]) return;
+            seen[name] = true;
+            counts[name] = (counts[name] || 0) + 1;
+          });
+        });
+        return Object.keys(counts).map(function (label) { return { label: label, count: counts[label] }; });
+      })(),
       events: eventsMetric,
       eventSeries: eventSeries,
       eventLastYear: eventLastYear,
@@ -1378,10 +1532,26 @@
       attendanceLastYear: attendanceLastYear,
       noShows: noShowsMetric,
       noShowSeries: noShowSeries,
-      renewalRisk: data.renewalRisk || null,
+      renewalRisk: (function () {
+        if (directory && directory.membership && directory.membership.length && root.ABADirectory && root.ABADirectory.renewalStats) {
+          var stats = root.ABADirectory.renewalStats(directory, view);
+          return {
+            zeroAttendance: stats.zeroAttendance,
+            cohort: stats.cohort,
+            pct: stats.pct,
+            byTenure: stats.byTenure,
+            newerLabel: stats.newerLabel,
+            longerLabel: stats.longerLabel,
+            thisYearLabel: stats.thisYearLabel,
+            lapseByBand: stats.lapseByBand
+          };
+        }
+        return data.renewalRisk || null;
+      })(),
       pie: {
         members: pieMembers,
         guests: pieGuests,
+        noShows: noShowsMetric.noShows,
         memberPct: memberPct,
         guestPct: pieTotal ? 100 - memberPct : 0
       }

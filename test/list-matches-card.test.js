@@ -256,6 +256,11 @@ test('example membership totals stay on the shared records', () => {
   assert.equal(joined.rows.length, view.newMembers.value);
   assert.ok(view.newMembers.value > 0);
   assert.equal(view.events.value, 3);
+  const lunchOnly = dash.compute(exampleSource, Object.assign({}, dash.defaultState(exampleSource), {
+    eventTypes: ['Lunch & Learn']
+  }), built);
+  assert.equal(lunchOnly.events.value, 3);
+  assert.equal(lunchOnly.members.value, home.members.value);
   const plain = dash.compute(exampleSource, Object.assign({}, dash.defaultState(exampleSource), {
     selectedBusinessTypes: ['Contractors']
   }), built);

@@ -228,7 +228,8 @@ test('served dashboard exports every list with and without two filters', async (
     assert.ok(memberNumber > 0);
     await page.screenshot({ path: shot, fullPage: false });
     const beforeSearch = openPanel.rows.length;
-    await page.locator('[data-drill-search]').fill('Example 1');
+    const token = (openPanel.rows[0] && openPanel.rows[0][1]) || 'Sample';
+    await page.locator('[data-drill-search]').fill(token);
     await page.waitForTimeout(50);
     const searched = await readPanel();
     assert.ok(searched.rows.length > 0);

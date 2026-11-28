@@ -190,19 +190,40 @@
     return false;
   }
 
-  function personSelected(selected, row, view) {
+  function identityGate(view) {
+    var selected = (view && view.people) || [];
+    if (!selected.length) return null;
+    var key = selected.join('\n');
+    if (view._identityKey === key && view._identity) return view._identity;
+    var names = {};
+    var emails = {};
     var people = (view.directory && view.directory.people) || [];
+    people.forEach(function (entry) {
+      if (!selectedPerson(selected, entry)) return;
+      var keys = entry.keys || [foldLabel(entry.name)];
+      keys.forEach(function (item) { if (item) names[item] = true; });
+      (entry.emails || []).forEach(function (item) { if (item) emails[item] = true; });
+      if (entry.name) names[foldLabel(entry.name)] = true;
+    });
+    selected.forEach(function (item) {
+      var folded = foldLabel(item);
+      if (folded) names[folded] = true;
+    });
+    var gate = { names: names, emails: emails };
+    if (view) {
+      view._identityKey = key;
+      view._identity = gate;
+    }
+    return gate;
+  }
+
+  function personSelected(selected, row, view) {
+    var gate = identityGate(view);
+    if (!gate) return true;
     var name = foldLabel(row.name);
     var email = foldLabel(row.email);
-    var i;
-    for (i = 0; i < people.length; i++) {
-      if (!selectedPerson(selected, people[i])) continue;
-      if (name && (people[i].keys || [foldLabel(people[i].name)]).indexOf(name) !== -1) return true;
-      if (email && (people[i].emails || []).indexOf(email) !== -1) return true;
-    }
-    for (i = 0; i < selected.length; i++) {
-      if (foldLabel(selected[i]) === name) return true;
-    }
+    if (name && gate.names[name]) return true;
+    if (email && gate.emails[email]) return true;
     return false;
   }
 
@@ -251,6 +272,7 @@
       var person = {
         name: personName(seq),
         company: company,
+        email: emailOf(personName(seq)),
         audience: audience,
         eventType: eventType,
         joined: joined,
@@ -313,11 +335,13 @@
         attendance.push({
           name: member.name,
           company: member.company,
+          email: emailOf(member.name),
           audience: 'Member',
           event: event.type,
           eventType: event.type,
           eventId: event.id,
-          date: event.date
+          date: event.date,
+          status: 'attended'
         });
       }
       for (i = 0; i < guestCount; i++) {
@@ -331,7 +355,26 @@
           event: event.type,
           eventType: event.type,
           eventId: event.id,
-          date: event.date
+          date: event.date,
+          status: 'attended'
+        });
+      }
+      var missed = 0;
+      (source.signups || []).forEach(function (row) {
+        if (row.eventId === event.id) missed = row.noShows || 0;
+      });
+      var n;
+      for (n = 0; n < missed; n++) {
+        var missedGuest = guests[(guestCursor + n) % guests.length];
+        attendance.push({
+          name: missedGuest.name,
+          company: missedGuest.company,
+          audience: 'Guest',
+          event: event.type,
+          eventType: event.type,
+          eventId: event.id,
+          date: event.date,
+          status: 'no_show'
         });
       }
     });
@@ -346,6 +389,27 @@
     people.forEach(remember);
     guests.forEach(remember);
     directoryPeople.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    var activeMembers = people.filter(function (person) {
+      return person.audience === 'Member' && !person.lost;
+    });
+    var typePlan = [
+      ['Restaurants', 62], ['Contractors', 54], ['Real Estate Services', 48],
+      ['Medical, Dental & Nursing Care', 44], ['Financial & Investment Services', 38],
+      ['Insurance', 32], ['Marketing', 28], ['Fitness', 24], ['Legal Services', 21],
+      ['Education', 18], ['Automotive', 16], ['Other / not listed', 27]
+    ];
+    var newer = activeMembers.filter(function (person) { return person.joined >= '2026-07-01'; });
+    var older = activeMembers.filter(function (person) { return person.joined < '2026-07-01'; });
+    typePlan.forEach(function (plan) {
+      var label = plan[0];
+      var quota = plan[1];
+      var fresh = Math.min(newer.length, Math.max(1, Math.round(quota * newer.length / Math.max(1, activeMembers.length))));
+      if (label === 'Contractors') fresh = Math.min(newer.length, 11);
+      var picked = newer.splice(0, Math.min(fresh, quota)).concat(older.splice(0, Math.max(0, quota - fresh)));
+      picked.forEach(function (person) {
+        person.categories = label === 'Other / not listed' ? [] : [label];
+      });
+    });
 
     return {
       companies: COMPANIES.slice(),
@@ -373,21 +437,337 @@
 
   var ALLOWED = { 'Lunch & Learn': true, 'Ribbon Cutting': true, 'Happy Hour': true };
 
+  function foldStatus(value) {
+    return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  }
+
+  function visitMark(row) {
+    var status = foldStatus(row && row.status);
+    if (!status) status = foldStatus(row && (row.registration_status || row.registrationStatus));
+    return status;
+  }
+
   function countedVisit(row) {
     if (row.eventType && !ALLOWED[row.eventType]) return false;
-    if (row.status && String(row.status).toLowerCase() !== 'attended') return false;
+    return visitMark(row) === 'attended';
+  }
+
+  function isNoShowText(text) {
+    return text === 'no_show' || text === 'noshow';
+  }
+
+  function rowIsNoShow(row) {
+    return isNoShowText(visitMark(row));
+  }
+
+  function rowIsSignUp(row) {
+    var status = visitMark(row);
+    if (!status || status.indexOf('cancel') === 0) return false;
+    return status === 'attended' || status === 'registered' || isNoShowText(status);
+  }
+
+  function outcomesPresent(directory) {
+    return (directory.attendance || []).some(function (row) {
+      return visitMark(row);
+    });
+  }
+
+  function isoDate(value) {
+    var text = String(value || '');
+    return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : '';
+  }
+
+  function fiscalYear(iso) {
+    if (!iso) return 0;
+    var year = Number(iso.slice(0, 4));
+    var month = Number(iso.slice(5, 7));
+    if (!year || !month) return 0;
+    return month >= 7 ? year + 1 : year;
+  }
+
+  function shiftYear(iso, delta) {
+    var year = Number(iso.slice(0, 4)) + delta;
+    var month = Number(iso.slice(5, 7));
+    var day = Number(iso.slice(8, 10));
+    var dim = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (day > dim) day = dim;
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    return year + '-' + pad(month) + '-' + pad(day);
+  }
+
+  function focusWindow(view) {
+    var bucket = view && view.bucket ? String(view.bucket) : '';
+    var bits = bucket.split(':');
+    if (bits.length === 2 && /^\d{4}-\d{2}-\d{2}$/.test(bits[0]) && /^\d{4}-\d{2}-\d{2}$/.test(bits[1]) && bits[0] <= bits[1]) {
+      return { start: bits[0], end: bits[1], chosen: true };
+    }
+    var range = view && (view.focus || view.range) || {};
+    return { start: range.start || '', end: range.end || '9999-12-31', chosen: false };
+  }
+
+  function bandFor(count) {
+    if (count <= 0) return '0';
+    if (count <= 2) return '1–2';
+    if (count <= 5) return '3–5';
+    return '6+';
+  }
+
+  function tenureKey(joined, cohortYear, newerStart) {
+    var joinedFy = fiscalYear(joined);
+    if (!joined || !joinedFy) return 'unknown';
+    if (joinedFy >= cohortYear) return 'thisYear';
+    if (joinedFy >= newerStart && joinedFy < cohortYear) return 'newer';
+    return 'longer';
+  }
+
+  function buildCensus(directory, asOf, period, sourceRows) {
+    var cohortYear = fiscalYear(asOf);
+    var empty = { rows: [], asOf: asOf, cohortYear: cohortYear, labels: {} };
+    if (!cohortYear || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOf || ''))) return empty;
+    var last12Start = shiftYear(asOf, -1);
+    var renewalDate = (cohortYear - 1) + '-06-30';
+    var cycleStart = (cohortYear - 2) + '-07-01';
+    var newerStart = cohortYear - 4;
+    var recentStart = last12Start;
+    var recentEnd = asOf;
+    var cycleLo = cycleStart;
+    var cycleHi = renewalDate;
+    if (period && period.chosen) {
+      if (period.start > recentStart) recentStart = period.start;
+      if (period.end < recentEnd) recentEnd = period.end;
+      if (period.start > cycleLo) cycleLo = period.start;
+      if (period.end < cycleHi) cycleHi = period.end;
+    }
+    var stockDate = period && period.chosen ? period.end : asOf;
+    var recent = {};
+    var cycle = {};
+    function addHit(bucket, key) {
+      if (!key) return;
+      bucket[key] = (bucket[key] || 0) + 1;
+    }
+    (directory.attendance || []).forEach(function (row) {
+      if (!row.eventType || !ALLOWED[row.eventType]) return;
+      if (visitMark(row) !== 'attended') return;
+      var date = isoDate(row.date);
+      if (!date) return;
+      var email = foldLabel(row.email);
+      var company = foldLabel(row.company);
+      if (date > recentStart && date <= recentEnd) {
+        if (email) addHit(recent, 'e:' + email);
+        if (company) addHit(recent, 'c:' + company);
+      }
+      if (cycleLo <= cycleHi && date >= cycleLo && date <= cycleHi) {
+        if (email) addHit(cycle, 'e:' + email);
+        if (company) addHit(cycle, 'c:' + company);
+      }
+    });
+    function visitsFor(email, company, bucket) {
+      if (email) return bucket['e:' + email] || 0;
+      return company ? (bucket['c:' + company] || 0) : 0;
+    }
+    var rows = [];
+    (sourceRows || directory.membership || []).forEach(function (row) {
+      if (row.audience && row.audience !== 'Member') return;
+      var company = tidyLabel(row.company || '');
+      if (!company) return;
+      var joined = isoDate(row.joined);
+      var lost = isoDate(row.lost);
+      var status = String(row.statusText || row.status || '').toLowerCase();
+      var email = foldLabel(row.email);
+      var companyKey = foldLabel(company);
+      var recentVisits = visitsFor(email, companyKey, recent);
+      var cycleVisits = visitsFor(email, companyKey, cycle);
+      var current = (!lost || lost > stockDate) && status !== 'deactivated' && (!joined || joined <= stockDate);
+      var inCycle = (!joined || joined < cycleStart) && (!lost || lost >= cycleStart);
+      rows.push({
+        row: row,
+        company: company,
+        email: email,
+        joined: joined,
+        lost: lost,
+        recentVisits: recentVisits,
+        cycleVisits: cycleVisits,
+        current: current,
+        inCycle: inCycle,
+        lapsed: lost === renewalDate,
+        tenure: tenureKey(joined, cohortYear, newerStart),
+        band: bandFor(recentVisits),
+        cycleBand: bandFor(cycleVisits),
+        zero: current && !recentVisits
+      });
+    });
+    return {
+      rows: rows,
+      asOf: asOf,
+      cohortYear: cohortYear,
+      labels: {
+        newer: 'Joined ' + (newerStart - 1) + '–' + (cohortYear - 2),
+        longer: 'Joined ' + (newerStart - 2) + ' or earlier',
+        thisYear: 'Joined this fiscal year'
+      }
+    };
+  }
+
+  function census(directory, view) {
+    var asOf = (view && (view.asOf || view.today)) || '2026-11-24';
+    var period = focusWindow(view);
+    var businessKey = ((view && view.selectedBusinessTypes) || []).join(',');
+    var key = asOf + '|' + (period.chosen ? period.start + ':' + period.end : '') + '|' + businessKey;
+    if (view && view._censusKey === key && view._census) return view._census;
+    var sourceRows = memberUniverse(directory, view).filter(function (row) {
+      if (row.audience && row.audience !== 'Member') return false;
+      return matchesBusinessType(row, (view && view.selectedBusinessTypes) || []);
+    });
+    var built = buildCensus(directory || { membership: [], attendance: [] }, asOf, period, sourceRows);
+    if (view) {
+      view._census = built;
+      view._censusKey = key;
+    }
+    return built;
+  }
+
+  function tenureMatch(profile, tenure) {
+    if (!tenure) return true;
+    if (tenure === 'other') return profile.tenure === 'unknown' || profile.tenure === 'thisYear';
+    return profile.tenure === tenure;
+  }
+
+  function inRenewalSlice(profile, view) {
+    var tenure = view && view.renewalTenure || '';
+    var band = view && view.renewalBand || '';
+    if (!tenure && !band) return true;
+    if (tenure && !tenureMatch(profile, tenure)) return false;
+    if (tenure && !band && !profile.zero) return false;
+    if (band && (profile.band !== band || !profile.current)) return false;
     return true;
   }
 
+  function baseProfile(profile, view) {
+    if (!matchesBusinessType(profile.row, (view && view.selectedBusinessTypes) || [])) return false;
+    var flow = view && view.flow || '';
+    if (!flow) return true;
+    var focus = focusWindow(view);
+    if (flow === 'new') return !!(profile.joined && profile.joined >= focus.start && profile.joined <= focus.end);
+    if (flow === 'lost') return !!(profile.lost && profile.lost >= focus.start && profile.lost <= focus.end);
+    return true;
+  }
+
+  function companySet(directory, view) {
+    var business = (view && view.selectedBusinessTypes) || [];
+    var flow = view && view.flow || '';
+    var renewal = view && (view.renewalTenure || view.renewalBand);
+    if (!business.length && !flow && !renewal) return null;
+    var key = business.join('|') + '~' + flow + '~' + (view.renewalTenure || '') + '~' + (view.renewalBand || '') + '~' + (view.bucket || '');
+    if (view && view._companyKey === key) return view._companySet;
+    var set = {};
+    census(directory, view).rows.forEach(function (profile) {
+      if (!baseProfile(profile, view)) return;
+      if (renewal && !inRenewalSlice(profile, view)) return;
+      if (!flow && !renewal && !profile.current) return;
+      if (profile.company) set[foldLabel(profile.company)] = true;
+    });
+    if (view) {
+      view._companyKey = key;
+      view._companySet = set;
+    }
+    return set;
+  }
+
+  function companyAllowed(row, directory, view) {
+    var set = companySet(directory, view);
+    if (!set) return true;
+    return !!set[foldLabel(row && row.company)];
+  }
+
   function attendanceRows(directory, start, end, eventTypes, audience, view) {
+    var wantNoShow = audience === 'No-show';
     return (directory.attendance || []).filter(function (row) {
-      if (!countedVisit(row)) return false;
       if (row.date < start || row.date > end) return false;
       if (!typeOk(row.eventType, eventTypes)) return false;
-      if (audience && row.audience !== audience) return false;
+      if (wantNoShow) {
+        if (!rowIsNoShow(row)) return false;
+      } else if (!countedVisit(row)) return false;
+      if (audience && audience !== 'No-show' && row.audience !== audience) return false;
       if (view && !identityOk(row, view)) return false;
+      if (view && !companyAllowed(row, directory, view)) return false;
       return true;
     });
+  }
+
+  function noShowSummary(directory, view, start, end) {
+    if (!outcomesPresent(directory)) return null;
+    var rows = [];
+    var signups = 0;
+    var audience = view && view.audience || '';
+    (directory.attendance || []).forEach(function (row) {
+      if (!row.date || row.date < start || row.date > end) return;
+      if (view && !typeOk(row.eventType, view.eventTypes || [])) return;
+      if (view && !identityOk(row, view)) return;
+      if (view && !companyAllowed(row, directory, view)) return;
+      if ((audience === 'Member' || audience === 'Guest') && row.audience !== audience) return;
+      if (!rowIsSignUp(row)) return;
+      signups += 1;
+      if (rowIsNoShow(row)) rows.push(row);
+    });
+    var pct = signups ? Math.round((rows.length / signups) * 100) : 0;
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    return { noShows: rows.length, signups: signups, rows: rows, pct: pct };
+  }
+
+  function renewalStats(directory, view) {
+    var profiles = census(directory, view).rows.filter(function (profile) {
+      return baseProfile(profile, view);
+    });
+    var tenureName = view && view.renewalTenure || '';
+    var bandName = view && view.renewalBand || '';
+    var current = profiles.filter(function (profile) { return profile.current; });
+    var tenurePool = current.filter(function (profile) {
+      return !bandName || profile.band === bandName;
+    });
+    var bandPool = current.filter(function (profile) {
+      return tenureMatch(profile, tenureName);
+    });
+    var tenure = { newer: 0, longer: 0, unknown: 0, thisYear: 0 };
+    tenurePool.forEach(function (profile) {
+      if (tenureName && !tenureMatch(profile, tenureName)) return;
+      if (!bandName && profile.recentVisits) return;
+      if (tenure[profile.tenure] != null) tenure[profile.tenure] += 1;
+    });
+    var bands = {
+      '0': { band: '0', members: 0, lapsed: 0 },
+      '1–2': { band: '1–2', members: 0, lapsed: 0 },
+      '3–5': { band: '3–5', members: 0, lapsed: 0 },
+      '6+': { band: '6+', members: 0, lapsed: 0 }
+    };
+    bandPool.forEach(function (profile) {
+      if (!bands[profile.band]) return;
+      bands[profile.band].members += 1;
+      if (profile.lapsed) bands[profile.band].lapsed += 1;
+    });
+    var headline = current.filter(function (profile) {
+      if (tenureName && !tenureMatch(profile, tenureName)) return false;
+      if (bandName && profile.band !== bandName) return false;
+      if (!bandName && profile.recentVisits) return false;
+      return true;
+    });
+    var denom = bandPool.length;
+    if (headline.length > denom) denom = headline.length;
+    var pct = denom ? Math.round((headline.length / denom) * 100) : 0;
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    var info = census(directory, view);
+    return {
+      zeroAttendance: headline.length,
+      cohort: denom,
+      pct: pct,
+      byTenure: tenure,
+      newerLabel: info.labels.newer || '',
+      longerLabel: info.labels.longer || '',
+      thisYearLabel: info.labels.thisYear || '',
+      lapseByBand: [bands['0'], bands['1–2'], bands['3–5'], bands['6+']],
+      rows: headline
+    };
   }
 
   function liveMembershipOk(person, view) {
@@ -413,6 +793,7 @@
       return Object.keys(ids).length;
     },
     sumAttendance: function (start, end, eventTypes, audience, view) {
+      if (audience === 'No-show') return 0;
       return attendanceRows(view.directory, start, end, eventTypes, audience, view).length;
     },
     events: function (start, end, eventTypes, audience, view) {
@@ -506,10 +887,18 @@
   }
 
   function memberUniverse(directory, view) {
-    var selected = (view && view.selectedBusinessTypes) || [];
-    if (selected.length && directory.businesses && directory.businesses.length) return directory.businesses;
     if (directory.membership && directory.membership.length) return directory.membership;
     return directory.businesses || [];
+  }
+
+  var rowSerial = 0;
+  function rowKey(row) {
+    if (!row) return '';
+    if (!row._rowKey) {
+      rowSerial += 1;
+      row._rowKey = 'r' + rowSerial;
+    }
+    return row._rowKey;
   }
 
   function memberLine(row, status, date) {
@@ -519,20 +908,44 @@
       company: row.company || '',
       status: status,
       date: date || '',
-      category: cats.length ? cats.join(', ') : 'Other / not listed'
+      category: cats.length ? cats.join(' | ') : 'Other / not listed'
     };
+  }
+
+  function sliceProfiles(directory, view) {
+    return census(directory, view).rows.filter(function (profile) {
+      if (!baseProfile(profile, view)) return false;
+      if ((view.renewalTenure || view.renewalBand) && !inRenewalSlice(profile, view)) return false;
+      return true;
+    });
   }
 
   function memberRecords(directory, view, range, mode) {
     var selected = (view && view.selectedBusinessTypes) || [];
     var start = range && range.start || '';
     var end = range && range.end || '9999-12-31';
+    var useFlow = !!(range && range.useFlow && view && view.flow);
+    var renewalRows = null;
+    if (view && (view.renewalTenure || view.renewalBand)) {
+      renewalRows = {};
+      sliceProfiles(directory, view).forEach(function (profile) {
+        if (view.renewalBand && !(profile.current && profile.band === view.renewalBand)) return;
+        if (!view.renewalBand && !(profile.current && profile.zero)) return;
+        renewalRows[rowKey(profile.row)] = true;
+      });
+    }
     var rows = [];
     memberUniverse(directory, view).forEach(function (row) {
       if (row.audience && row.audience !== 'Member') return;
       if (!matchesBusinessType(row, selected)) return;
+      if (renewalRows && !renewalRows[rowKey(row)]) return;
       var joined = row.joined || '';
       var lost = row.lost || '';
+      if (useFlow) {
+        var cohort = focusWindow(view);
+        if (view.flow === 'new' && !(joined >= cohort.start && joined <= cohort.end)) return;
+        if (view.flow === 'lost' && !(lost && lost >= cohort.start && lost <= cohort.end)) return;
+      }
       if (mode === 'joined') {
         if (!joined || joined < start || joined > end) return;
         rows.push(memberLine(row, 'new', joined));
@@ -550,18 +963,23 @@
     return rows;
   }
 
+  function validSpan(span) {
+    return !!(span && /^\d{4}-\d{2}-\d{2}$/.test(String(span.start || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(span.end || '')) && span.start <= span.end);
+  }
+
   function drill(directory, kind, view) {
-    var range = view.measure || view.range;
+    var range = validSpan(view.measure) ? view.measure : (validSpan(view.focus) ? view.focus : (validSpan(view.range) ? view.range : { start: '1970-01-01', end: '9999-12-31' }));
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     if (kind === 'attendance' || kind === 'distribution') {
-      var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
+      var found = audience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
       var visitTitle = 'Event visits';
       if (eventTypes.length === 1) visitTitle = eventTypes[0] + ' visits';
       else if (eventTypes.length > 1) visitTitle = eventTypes.join(', ') + ' visits';
       else if (audience === 'Member') visitTitle = 'Member visits';
       else if (audience === 'Guest') visitTitle = 'Guest visits';
+      else if (audience === 'No-show') visitTitle = 'No-shows';
       else if (kind === 'distribution') visitTitle = 'Member and guest visits';
       return {
         title: visitTitle,
@@ -572,7 +990,8 @@
     }
     if (kind === 'businesses') {
       var wanted = (view.selectedBusinessTypes || []);
-      var bizRows = memberRecords(directory, view, range, 'active').map(function (row) {
+      var bizMode = view.flow === 'new' ? 'joined' : 'active';
+      var bizRows = memberRecords(directory, view, { start: range.start, end: range.end, useFlow: true }, bizMode).map(function (row) {
         return { company: row.company, category: row.category, joined: row.date };
       });
       bizRows.sort(function (a, b) { return a.company < b.company ? -1 : a.company > b.company ? 1 : 0; });
@@ -611,8 +1030,41 @@
         rows: eventRows
       };
     }
+    if (kind === 'noshows') {
+      var missed = noShowSummary(directory, view, range.start, range.end);
+      var missedRows = (missed && missed.rows) || [];
+      return {
+        title: 'No-shows',
+        kind: kind,
+        columns: columnList(missedRows, ['name', 'audience', 'company', 'event', 'date']),
+        rows: missedRows
+      };
+    }
+    if (kind === 'renewal') {
+      var riskRows = renewalStats(directory, view).rows.map(function (profile) {
+        return {
+          company: profile.company,
+          category: categoriesOf(profile.row).join(', ') || 'Other / not listed',
+          tenure: profile.tenure,
+          visits: profile.recentVisits,
+          band: profile.band
+        };
+      });
+      return {
+        title: 'Renewal risk',
+        kind: kind,
+        columns: [
+          { key: 'company', label: 'Company' },
+          { key: 'category', label: 'Business type' },
+          { key: 'tenure', label: 'Tenure' },
+          { key: 'visits', label: 'Visits' },
+          { key: 'band', label: 'Visit band' }
+        ],
+        rows: riskRows
+      };
+    }
     var mode = kind === 'newMembers' ? 'joined' : (kind === 'members' ? 'active' : 'changes');
-    var memberRows = memberRecords(directory, view, range, mode);
+    var memberRows = memberRecords(directory, view, { start: range.start, end: range.end, useFlow: true }, mode);
     var titles = { members: 'Business Members', newMembers: 'New Members', changes: 'Membership records', gains: 'Member Gains and Losses' };
     return {
       title: titles[kind] || 'Membership',
@@ -761,7 +1213,9 @@
       copy.eventId = String(row.eventId || row.event_id || '');
       copy.audience = row.audience || '';
       copy.company = row.company || '';
-      copy.status = String(row.status || '').toLowerCase();
+        copy.status = String(row.status || '').toLowerCase();
+        copy.email = String(row.email || '');
+        copy.registration_status = String(row.registration_status || row.registrationStatus || '');
       attendance.push(copy);
     });
     var people = consolidatePeople(attendance);
@@ -776,7 +1230,9 @@
         audience: 'Member',
         eventType: '',
         categories: categories,
-        joined: row.joinDate || row.join_date || '2011-12-31',
+        email: String(row.email || ''),
+        statusText: String(row.status || ''),
+        joined: row.joinDate || row.join_date || '',
         lost: (function () {
           var dated = row.lostDate || row.lost_date || '';
           if (/^\d{4}-\d{2}-\d{2}$/.test(String(dated))) return String(dated).slice(0, 10);
@@ -816,6 +1272,11 @@
     withContacts: withContacts,
     drill: drill,
     memberRecords: memberRecords,
+    renewalStats: renewalStats,
+    noShowSummary: noShowSummary,
+    rowIsNoShow: rowIsNoShow,
+    rowIsSignUp: rowIsSignUp,
+    visitMark: visitMark,
     categoriesOf: categoriesOf,
     matchesBusinessType: matchesBusinessType,
     exportFileName: exportFileName,
