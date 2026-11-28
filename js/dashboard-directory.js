@@ -190,19 +190,40 @@
     return false;
   }
 
-  function personSelected(selected, row, view) {
+  function identityGate(view) {
+    var selected = (view && view.people) || [];
+    if (!selected.length) return null;
+    var key = selected.join('\n');
+    if (view._identityKey === key && view._identity) return view._identity;
+    var names = {};
+    var emails = {};
     var people = (view.directory && view.directory.people) || [];
+    people.forEach(function (entry) {
+      if (!selectedPerson(selected, entry)) return;
+      var keys = entry.keys || [foldLabel(entry.name)];
+      keys.forEach(function (item) { if (item) names[item] = true; });
+      (entry.emails || []).forEach(function (item) { if (item) emails[item] = true; });
+      if (entry.name) names[foldLabel(entry.name)] = true;
+    });
+    selected.forEach(function (item) {
+      var folded = foldLabel(item);
+      if (folded) names[folded] = true;
+    });
+    var gate = { names: names, emails: emails };
+    if (view) {
+      view._identityKey = key;
+      view._identity = gate;
+    }
+    return gate;
+  }
+
+  function personSelected(selected, row, view) {
+    var gate = identityGate(view);
+    if (!gate) return true;
     var name = foldLabel(row.name);
     var email = foldLabel(row.email);
-    var i;
-    for (i = 0; i < people.length; i++) {
-      if (!selectedPerson(selected, people[i])) continue;
-      if (name && (people[i].keys || [foldLabel(people[i].name)]).indexOf(name) !== -1) return true;
-      if (email && (people[i].emails || []).indexOf(email) !== -1) return true;
-    }
-    for (i = 0; i < selected.length; i++) {
-      if (foldLabel(selected[i]) === name) return true;
-    }
+    if (name && gate.names[name]) return true;
+    if (email && gate.emails[email]) return true;
     return false;
   }
 
@@ -927,8 +948,12 @@
     return rows;
   }
 
+  function validSpan(span) {
+    return !!(span && /^\d{4}-\d{2}-\d{2}$/.test(String(span.start || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(span.end || '')) && span.start <= span.end);
+  }
+
   function drill(directory, kind, view) {
-    var range = view.measure || view.range;
+    var range = validSpan(view.measure) ? view.measure : (validSpan(view.focus) ? view.focus : (validSpan(view.range) ? view.range : { start: '1970-01-01', end: '9999-12-31' }));
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     if (kind === 'attendance' || kind === 'distribution') {
@@ -950,7 +975,8 @@
     }
     if (kind === 'businesses') {
       var wanted = (view.selectedBusinessTypes || []);
-      var bizRows = memberRecords(directory, view, range, 'active').map(function (row) {
+      var bizMode = view.flow === 'new' ? 'joined' : 'active';
+      var bizRows = memberRecords(directory, view, { start: range.start, end: range.end, useFlow: true }, bizMode).map(function (row) {
         return { company: row.company, category: row.category, joined: row.date };
       });
       bizRows.sort(function (a, b) { return a.company < b.company ? -1 : a.company > b.company ? 1 : 0; });

@@ -147,13 +147,16 @@
     var view = dash.compute(source, state, directory);
     view.mobile = mobileQuery.matches;
     view.documents = documents;
-    view.directory = { companies: directory.companies };
+    view.directory = { companies: directory.companies, people: directory.people || [] };
     view.personOptions = window.ABADirectory.peopleForCompanies(directory, state.companies || []);
     view.ui = ui;
-    if (view.bucket) {
-      (view.gains || []).forEach(function (bucket) {
-        if (bucket.id === view.bucket) view.measure = { start: bucket.start, end: bucket.end };
-      });
+    if (view.measure && (!/^\d{4}-\d{2}-\d{2}$/.test(String(view.measure.start || '')) || !/^\d{4}-\d{2}-\d{2}$/.test(String(view.measure.end || '')))) {
+      var periodBits = String(view.bucket || '').split(':');
+      if (periodBits.length === 2 && /^\d{4}-\d{2}-\d{2}$/.test(periodBits[0]) && /^\d{4}-\d{2}-\d{2}$/.test(periodBits[1])) {
+        view.measure = { start: periodBits[0], end: periodBits[1] };
+      } else if (view.range && /^\d{4}-\d{2}-\d{2}$/.test(String(view.range.start || ''))) {
+        view.measure = { start: view.range.start, end: view.range.end };
+      }
     }
     if (ui.drill) {
       var pack = window.ABADirectory.drill(directory, ui.drill.kind, view);

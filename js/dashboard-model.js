@@ -1158,6 +1158,8 @@
     var gainSeries = compareYears ? yearBars.map(function (bar) {
       return {
         id: bar.start + ':' + bar.end,
+        start: bar.start,
+        end: bar.end,
         label: bar.label,
         joins: bar.joins,
         losses: bar.losses,
@@ -1173,13 +1175,17 @@
       var prior = flowSpan(priorSpan.start, priorSpan.end);
       return {
         id: bucket.id,
+        start: bucket.start,
+        end: bucket.end,
         label: bucket.label,
         joins: flow.joins,
         losses: flow.losses,
         active: memberStock(bucket.start, bucket.end),
         priorJoins: prior.joins,
         priorLosses: prior.losses,
-        priorId: priorSpan.start + ':' + priorSpan.end
+        priorId: priorSpan.start + ':' + priorSpan.end,
+        priorStart: priorSpan.start,
+        priorEnd: priorSpan.end
       };
     });
     var gainLegend = { current: 'This FY', prior: 'Last FY' };
@@ -1278,7 +1284,8 @@
     }
     var pieTotal = pieMembers + pieGuests;
     var memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
-    var multi = yearBars.length > 1;
+    var focused = !!(view.focus && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.start) && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.end));
+    var multi = !focused && yearBars.length > 1;
     var membersMetric = memberStockComparisons(measure, memberStock);
     var freshMetric = memberFlowComparisons(measure, joins);
     var netMetric = memberFlowComparisons(measure, net);
@@ -1315,7 +1322,7 @@
       });
       pieTotal = pieMembers + pieGuests;
       memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
-    } else if (yearBars.length === 1) {
+    } else if (!focused && yearBars.length === 1) {
       var only = { start: yearBars[0].start, end: yearBars[0].end };
       eventsMetric = comparisons(only, countEvents);
       attendanceMetric = comparisons(only, function (start, end) { return sumAttendance(start, end); });
@@ -1348,7 +1355,15 @@
     netMetric.tag = periodTag;
     eventsMetric.tag = periodTag;
     attendanceMetric.tag = periodTag;
-    var noshowRoll = signupWindow(view.range.start, view.range.end);
+    if (focused && directory && directory.attendance && directory.narrow) {
+      var focusedPie = directory.narrow.pie(measure.start, measure.end, eventTypes, view);
+      pieMembers = focusedPie.Member || 0;
+      pieGuests = focusedPie.Guest || 0;
+      pieTotal = pieMembers + pieGuests;
+      memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
+    }
+    var noshowSpan = focused ? measure : view.range;
+    var noshowRoll = signupWindow(noshowSpan.start, noshowSpan.end);
     var noshowParts = yearBars.length > 1 ? yearBars.map(function (bar) {
       var pct = bar.signups ? Math.round((bar.noShows / bar.signups) * 100) : 0;
       return { label: bar.label, value: bar.noShows + ' of ' + bar.signups, pct: pct };
@@ -1394,6 +1409,8 @@
         });
         return {
           id: bucket.id,
+          start: bits[0],
+          end: bits[1],
           label: bucket.label,
           joins: joinsN,
           losses: lossesN,
@@ -1401,6 +1418,8 @@
           priorJoins: bucket.priorJoins || 0,
           priorLosses: bucket.priorLosses || 0,
           priorId: bucket.priorId || '',
+          priorStart: bucket.priorStart || '',
+          priorEnd: bucket.priorEnd || '',
           color: bucket.color,
           pattern: bucket.pattern
         };
@@ -1452,6 +1471,7 @@
       renewalBand: view.renewalBand || '',
       focus: view.focus || null,
       measure: measure,
+      directory: directory ? { companies: directory.companies || [], people: directory.people || [] } : null,
       members: membersMetric,
       newMembers: freshMetric,
       net: netMetric,

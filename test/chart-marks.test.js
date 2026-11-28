@@ -219,3 +219,68 @@ test('every chart mark is a shared filter', () => {
   fs.writeFileSync('/tmp/chart-marks.json', JSON.stringify(found, null, 2));
   console.log(JSON.stringify(found));
 });
+
+test('every card list matches after each period mark', () => {
+  const built = directoryApi.build(source);
+  const bases = [
+    { rangeKind: 'fy', group: 'month' },
+    { rangeKind: 'last12', group: 'month' },
+    { rangeKind: 'fy', group: 'year' },
+    { rangeKind: 'fy', group: 'month', selectedBusinessTypes: ['Contractors'] },
+    { rangeKind: 'fy', group: 'month', eventTypes: ['Lunch & Learn'] }
+  ];
+  let checks = 0;
+  bases.forEach(function (base) {
+    const home = dash.compute(source, Object.assign({}, dash.defaultState(source), base), built);
+    const marks = [];
+    (home.gains || []).forEach(function (bar) {
+      assert.match(String(bar.start || ''), /^\d{4}-\d{2}-\d{2}$/);
+      assert.match(String(bar.end || ''), /^\d{4}-\d{2}-\d{2}$/);
+      assert.equal(bar.id, bar.start + ':' + bar.end);
+      marks.push({ period: bar.id, flow: '' });
+      marks.push({ period: bar.id, flow: 'new' });
+      marks.push({ period: bar.id, flow: 'lost' });
+      if (bar.priorId) {
+        assert.match(String(bar.priorStart || ''), /^\d{4}-\d{2}-\d{2}$/);
+        assert.equal(bar.priorId, bar.priorStart + ':' + bar.priorEnd);
+        marks.push({ period: bar.priorId, flow: 'new' });
+        marks.push({ period: bar.priorId, flow: '' });
+      }
+    });
+    (home.monthBuckets || []).forEach(function (bucket) {
+      if (bucket && bucket.id) marks.push({ period: bucket.id, flow: '' });
+    });
+    marks.forEach(function (mark) {
+      const state = Object.assign({}, dash.defaultState(source), base, { bucket: mark.period, flow: mark.flow });
+      const view = dash.compute(source, state, built);
+      assert.equal(view.measure.start, mark.period.split(':')[0]);
+      assert.equal(view.measure.end, mark.period.split(':')[1]);
+      function rows(kind) { return directoryApi.drill(built, kind, view).rows.length; }
+      assert.equal(rows('members'), view.members.value);
+      assert.equal(rows('newMembers'), view.newMembers.value);
+      assert.equal(rows('events'), view.events.value);
+      assert.equal(rows('attendance'), view.attendance.value);
+      assert.equal(rows('noshows'), view.noShows.noShows);
+      if (view.renewalRisk) assert.equal(rows('renewal'), view.renewalRisk.zeroAttendance);
+      const businessRows = rows('businesses');
+      if (mark.flow === 'new') assert.equal(businessRows, view.newMembers.value);
+      else if (mark.flow === 'lost') assert.equal(businessRows, rows('members'));
+      else assert.equal(businessRows, view.members.value);
+      view.measure = { start: undefined, end: undefined };
+      assert.equal(directoryApi.drill(built, 'members', view).rows.length, view.members.value);
+      assert.equal(directoryApi.drill(built, 'events', view).rows.length, view.events.value);
+      checks += 1;
+    });
+  });
+  assert.ok(checks > 20);
+  const person = (built.attendance || []).filter(function (row) {
+    return row.date >= '2026-07-01' && row.status === 'attended';
+  })[0].name;
+  const started = Date.now();
+  const picked = dash.compute(source, Object.assign({}, dash.defaultState(source), { people: [person] }), built);
+  const listed = directoryApi.drill(built, 'attendance', picked).rows.length;
+  assert.ok(listed > 0);
+  assert.equal(listed, picked.attendance.value);
+  assert.ok(Date.now() - started < 1500);
+  console.log(JSON.stringify({ periodChecks: checks, personRows: listed, personMs: Date.now() - started }));
+});
