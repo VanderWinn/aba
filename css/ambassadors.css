@@ -1,0 +1,17 @@
+#amb { display: flex; flex-direction: column; min-height: 100vh; --kpi-size: 32px; --section-gap: 8px; }
+#amb .shell { padding: 8px 16px 12px; gap: 8px; }
+#amb .controls .dgroup { flex-direction: column; align-items: stretch; gap: 2px; }
+#amb .controls select { min-height: 30px; border: 1px solid #c5d0d4; border-radius: 4px; background: #fff; }
+#amb .kpi-row { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+#amb .chart-grid { grid-template-columns: 1fr 1fr 1fr; }
+#amb .chart-slot { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; }
+#amb .kpi-num { background: transparent; border: 0; box-shadow: none; }
+#amb .portal-list .detail-link { white-space: normal; text-align: left; }
+#amb .filter-hit { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; padding: 3px 0; }
+#amb .portal-list { list-style: none; margin: 0; padding: 0; }
+#amb .portal-list li { padding: 3px 0; }
+#amb .card-foot { text-align: center; }
+#amb .no-matches { color: #8a3b12; }
+@media (max-width: 800px) {
+  #amb .chart-grid { grid-template-columns: 1fr; }
+}

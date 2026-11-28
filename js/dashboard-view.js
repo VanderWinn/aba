@@ -479,6 +479,7 @@ function stepControl(step, enabled, compact, attrs) {
       '<a class="brand" href="../"><span class="brand-full">Board &amp; Committee Portal</span><span class="brand-short">Board portal</span></a>' +
       badge + '</div><nav class="topnav" aria-label="Portal">' +
       '<button type="button" data-page="overview"' + onDash + '>Dashboard</button>' +
+      '<a class="nav-link" href="../ambassadors/">Ambassadors</a>' +
       '<a class="nav-link" href="' + signup + '" target="_blank" rel="noopener noreferrer">Hospitality Sign-Up</a>' +
       documentsMenu(view) + '</nav></header>';
   }
