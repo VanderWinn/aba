@@ -285,6 +285,33 @@ test('every filter narrows every tab, and the zero-visit bar is red', () => {
   }, null, 2));
 });
 
+test('the Events held number keeps its color under every visit segment', () => {
+  const css = fs.readFileSync(path.join(root, 'css/dashboard.css'), 'utf8');
+  const rule = css.match(/\.card\.kpi-events \.kpi-num\s*\{[^}]*color:\s*(#[0-9A-Fa-f]{3,8})/);
+  assert.ok(rule, 'Events held number color');
+  const color = rule[1].toLowerCase();
+  function eventsNumber(audience) {
+    const view = viewOf(Object.assign({}, dash.defaultState(source), { page: 'events', audience: audience }));
+    const html = sandbox.ABADashboardView.render(view);
+    const card = html.split('class="card card-events kpi-events"')[1] || '';
+    const number = (card.match(/class="(kpi-num[^"]*)"/) || [])[1] || '';
+    assert.ok(number, audience || 'all');
+    return { number: number, color: color };
+  }
+  const base = eventsNumber('');
+  ['Member', 'Guest', 'No-show'].forEach(function (audience) {
+    const next = eventsNumber(audience);
+    assert.equal(next.color, base.color, audience);
+  });
+  assert.match(eventsNumber('No-show').number, /tone-down/);
+  assert.notEqual(color, 'var(--clay)');
+  assert.match(css, /\.tone-down\s*\{[^}]*color:\s*var\(--clay\)/);
+  assert.match(css, /\.card\.kpi-renewal \.kpi-num\.tone-down\s*\{[^}]*color:\s*var\(--clay\)/);
+  const quiet = sandbox.ABADashboardView.render(viewOf(Object.assign({}, dash.defaultState(source), { page: 'events', audience: 'No-show' })));
+  assert.match(quiet, /data-audience="No-show"[\s\S]{0,500}fill="#D01F25"|fill="#D01F25"[\s\S]{0,200}data-audience="No-show"/);
+  assert.match(quiet, /data-renewal-band="0"[\s\S]{0,400}fill="#D01F25"/);
+});
+
 test('a no-shows point leaves visits at zero and uses the segment sign-up denominator', () => {
   const home = homeView();
   const november = (home.monthBuckets || []).filter(function (bucket) {
