@@ -719,46 +719,39 @@
     var profiles = census(directory, view).rows.filter(function (profile) {
       return baseProfile(profile, view);
     });
-    var current = [];
-    var zero = [];
+    var tenureName = view && view.renewalTenure || '';
+    var bandName = view && view.renewalBand || '';
+    var current = profiles.filter(function (profile) { return profile.current; });
+    var tenurePool = current.filter(function (profile) {
+      return !bandName || profile.band === bandName;
+    });
+    var bandPool = current.filter(function (profile) {
+      return tenureMatch(profile, tenureName);
+    });
     var tenure = { newer: 0, longer: 0, unknown: 0, thisYear: 0 };
+    tenurePool.forEach(function (profile) {
+      if (tenureName && !tenureMatch(profile, tenureName)) return;
+      if (!bandName && profile.recentVisits) return;
+      if (tenure[profile.tenure] != null) tenure[profile.tenure] += 1;
+    });
     var bands = {
       '0': { band: '0', members: 0, lapsed: 0 },
       '1–2': { band: '1–2', members: 0, lapsed: 0 },
       '3–5': { band: '3–5', members: 0, lapsed: 0 },
       '6+': { band: '6+', members: 0, lapsed: 0 }
     };
-    profiles.forEach(function (profile) {
-      if (profile.current) {
-        current.push(profile);
-        if (!profile.recentVisits) {
-          zero.push(profile);
-          tenure[profile.tenure] += 1;
-        }
-      }
-      if (profile.current && bands[profile.band]) {
-        bands[profile.band].members += 1;
-        if (profile.lapsed && profile.cycleBand === profile.band) bands[profile.band].lapsed += 1;
-      }
+    bandPool.forEach(function (profile) {
+      if (!bands[profile.band]) return;
+      bands[profile.band].members += 1;
+      if (profile.lapsed) bands[profile.band].lapsed += 1;
     });
-    var tenureName = view && view.renewalTenure || '';
-    var bandName = view && view.renewalBand || '';
-    var headline = zero;
-    var denom = current.length;
-    if (bandName && tenureName) {
-      headline = current.filter(function (profile) {
-        return profile.band === bandName && tenureMatch(profile, tenureName);
-      });
-      denom = current.filter(function (profile) { return tenureMatch(profile, tenureName); }).length;
-    } else if (bandName) {
-      headline = current.filter(function (profile) { return profile.band === bandName; });
-      denom = current.length;
-    } else if (tenureName) {
-      headline = current.filter(function (profile) {
-        return !profile.recentVisits && tenureMatch(profile, tenureName);
-      });
-      denom = current.filter(function (profile) { return tenureMatch(profile, tenureName); }).length;
-    }
+    var headline = current.filter(function (profile) {
+      if (tenureName && !tenureMatch(profile, tenureName)) return false;
+      if (bandName && profile.band !== bandName) return false;
+      if (!bandName && profile.recentVisits) return false;
+      return true;
+    });
+    var denom = bandPool.length;
     if (headline.length > denom) denom = headline.length;
     var pct = denom ? Math.round((headline.length / denom) * 100) : 0;
     if (pct < 0) pct = 0;
@@ -800,6 +793,7 @@
       return Object.keys(ids).length;
     },
     sumAttendance: function (start, end, eventTypes, audience, view) {
+      if (audience === 'No-show') return 0;
       return attendanceRows(view.directory, start, end, eventTypes, audience, view).length;
     },
     events: function (start, end, eventTypes, audience, view) {
@@ -947,17 +941,10 @@
       if (renewalRows && !renewalRows[rowKey(row)]) return;
       var joined = row.joined || '';
       var lost = row.lost || '';
-      if (useFlow && view.flow === 'lost' && mode === 'joined') return;
-      if (useFlow && view.flow === 'new' && mode === 'active') {
-        if (!joined || joined < start || joined > end) return;
-        if (lost && lost <= end) return;
-        rows.push(memberLine(row, 'member', joined));
-        return;
-      }
-      if (useFlow && view.flow === 'lost' && mode === 'active') {
-        if (!(lost && lost >= start && lost <= end)) return;
-        rows.push(memberLine(row, 'lost', lost));
-        return;
+      if (useFlow) {
+        var cohort = focusWindow(view);
+        if (view.flow === 'new' && !(joined >= cohort.start && joined <= cohort.end)) return;
+        if (view.flow === 'lost' && !(lost && lost >= cohort.start && lost <= cohort.end)) return;
       }
       if (mode === 'joined') {
         if (!joined || joined < start || joined > end) return;

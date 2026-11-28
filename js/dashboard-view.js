@@ -103,8 +103,13 @@
       maxUp = Math.max(maxUp, bar.joins || 0);
       maxDown = Math.max(maxDown, bar.losses || 0);
     });
-    var mid = 118;
-    var sc = Math.min((mid - 36) / maxUp, (h - mid - 28) / maxDown);
+    var topInset = 28;
+    var botInset = 50;
+    var mid = Math.round(h * 0.5);
+    if (mid < topInset + 12) mid = topInset + 12;
+    if (h - mid < botInset) mid = Math.max(topInset + 12, h - botInset);
+    var sc = Math.min((mid - topInset) / maxUp, (h - mid - botInset) / maxDown);
+    if (!(sc > 0)) sc = 0;
     var n = series.length;
     var gap = 18;
     var bw = Math.max(18, Math.min(48, (w - 40 - gap * (n - 1)) / n));
@@ -123,9 +128,13 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + bar.color + '"' + gainDim + (gainOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>' + markClose());
       parts.push(markOpen(lossOn, 'Cancelled members ' + bar.label, 'data-period="' + escapeHtml(bar.id || '') + '" data-flow="lost"'));
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + bar.color + '" opacity="' + lossOpacity + '"' + (lossOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>' + markClose());
-      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
-      if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
-      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
+      var gainLabelY = mid - up - 6;
+      if (gainLabelY >= 14) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + gainLabelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
+      var lossLabelY = mid + Math.max(down, 2) + 14;
+      if (bar.losses && lossLabelY < h - 22 && lossLabelY > gainLabelY + 18) {
+        parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + lossLabelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
+      }
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
   }
@@ -209,7 +218,7 @@
     });
     var mid = Math.round(h * (showLabels ? 0.56 : 0.55));
     var topInset = labelValues ? (showLabels ? 34 : 26) : 18;
-    var botInset = showLabels ? 36 : 20;
+    var botInset = showLabels ? 50 : 28;
     var sc = Math.min((mid - topInset) / maxUp, (h - mid - botInset) / maxDown);
     var n = series.length || 1;
     var cw = (w - 20) / n;
@@ -235,8 +244,10 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + downColor + '"' + lossDim + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '/>' + markClose());
       if (!labelValues) return;
       var cx = x + bw / 2;
-      if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
-      if (losses) parts.push(valueText(cx, mid + down + 14, losses, '700'));
+      var gainY = mid - up - 4;
+      var lossY = mid + down + 14;
+      if (joins || !losses) parts.push(valueText(cx, gainY, joins, '700'));
+      if (losses && lossY < h - 22 && lossY > gainY + 18) parts.push(valueText(cx, lossY, losses, '700'));
     }
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
@@ -700,7 +711,8 @@ function stepControl(step, enabled, compact, attrs) {
       row('Guest', 'Guest visits', guests, pie.guestPct, guestColor) + '</div></div>';
   }
 
-  function axisLabelOn(index, count, compact) {
+  function axisLabelOn(index, count, compact, label) {
+    if (label && String(label).length <= 2 && count <= 16) return true;
     if (count <= 6) return true;
     if (!compact) return true;
     return index % 2 === 0 || index === count - 1;
@@ -739,7 +751,7 @@ function stepControl(step, enabled, compact, attrs) {
       if (!crowded || index === lastIndex || index === maxIndex) {
         parts.push('<text x="' + x.toFixed(1) + '" y="' + (y - 14).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
       }
-      if (axisLabelOn(index, n, compact)) {
+      if (axisLabelOn(index, n, compact, labels[index])) {
         parts.push('<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(labels[index] || '') + '</text>');
       }
     });
@@ -1047,10 +1059,34 @@ function stepControl(step, enabled, compact, attrs) {
     var pitch = barH + gap;
     if (slotH && slotH >= pitch) {
       var fit = Math.max(1, Math.floor((slotH - 4) / pitch));
-      var other = rows[rows.length - 1].name === 'Other / not listed' ? rows[rows.length - 1] : null;
-      var named = other ? rows.slice(0, -1) : rows;
-      if (other && fit >= 2) rows = named.slice(0, fit - 1).concat([other]);
-      else rows = named.slice(0, fit);
+      var pickedNames = view.selectedBusinessTypes || [];
+      var must = [];
+      var rest = [];
+      rows.forEach(function (row) {
+        if (pickedNames.indexOf(row.name) !== -1) must.push(row);
+        else rest.push(row);
+      });
+      var limit = Math.max(fit, must.length);
+      var otherRow = null;
+      var namedRest = [];
+      rest.forEach(function (row) {
+        if (row.name === 'Other / not listed') otherRow = row;
+        else namedRest.push(row);
+      });
+      var room = limit - must.length;
+      var fill = [];
+      if (otherRow && room > 0) {
+        fill = namedRest.slice(0, room - 1);
+        fill.push(otherRow);
+      } else fill = namedRest.slice(0, room);
+      var kept = must.concat(fill);
+      kept.sort(function (a, b) {
+        if (a.name === 'Other / not listed') return 1;
+        if (b.name === 'Other / not listed') return -1;
+        if (b.value !== a.value) return b.value - a.value;
+        return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+      });
+      rows = kept;
     }
     w = w || 320;
     var longest = 0;
@@ -1356,5 +1392,5 @@ function stepControl(step, enabled, compact, attrs) {
     }
   }
 
-  root.ABADashboardView = { render: render, escapeHtml: escapeHtml, fitCharts: fitCharts };
+  root.ABADashboardView = { render: render, escapeHtml: escapeHtml, fitCharts: fitCharts, businessTypeBars: businessTypeBars };
 })(typeof window !== 'undefined' ? window : globalThis);

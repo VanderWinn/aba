@@ -38,7 +38,7 @@
     'Net Gain': 'Business members who joined minus business members who left during the date range. A partial year is year to date and is compared with the same dates last year, not the full prior year.',
     'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
     'Membership combo': 'Teal bars are new members and red bars are cancelled members for each period in Group by. The line is the active member count. The first point is the opening stock, the day before the range starts. Each later point is the count at the end of that period. The rise or drop from the opening point to the last point equals Net membership change. The last point matches Active member businesses when the range ends today.',
-    'Members by business type': 'Active member businesses in each directory category, largest first. A business listed in more than one category is counted in each. Other / not listed is businesses with no category.',
+    'Members by business type': 'A business in more than one category is counted in each bar.',
     'Events Held': 'How many events took place in the date range. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business. The counts beside the event types are events in this same date range.',
     'Attendance': 'Event visits in the date range. A visit counts only when status is attended. If status is blank, registration_status is used. A blank or unmarked row is not a visit and not a no-show. One person at one event is one visit. The same person at two events is counted twice. This is not a count of unique people. Event type, company, attendee, business type, and a renewal-risk or joined/cancelled selection change this number. A guest visit counts when that visit’s company matches a selected member business.',
     'No-shows': 'People who signed up and were marked no-show. The count uses status, or registration_status when status is blank. A blank or unmarked row is not a visit and not a no-show. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. The same filters as the other cards apply, including business type.',
@@ -268,7 +268,7 @@
       var my = Math.floor(monthIdx / 12);
       var mm = monthIdx % 12 + 1;
       var letter = MONTHS[mm - 1];
-      if (spanYears) letter = letter + ' \u2019' + String(my).slice(2);
+      if (spanYears) letter = mm === 1 ? '\u2019' + String(my).slice(2) : letter.charAt(0);
       var bucketM = clipBucket(range, iso(my, mm, 1), iso(my, mm, daysInMonth(my, mm)), letter);
       if (bucketM) out.push(bucketM);
       monthIdx += 1;
@@ -1406,7 +1406,7 @@
       gainSeries = gainSeries.map(function (bucket) {
         var bits = String(bucket.id || '').split(':');
         if (bits.length < 2) return bucket;
-        var rows = root.ABADirectory.memberRecords(directory, view, { start: bits[0], end: bits[1] }, 'changes');
+        var rows = root.ABADirectory.memberRecords(directory, view, { start: bits[0], end: bits[1], useFlow: true }, 'changes');
         var joinsN = 0;
         var lossesN = 0;
         rows.forEach(function (row) {

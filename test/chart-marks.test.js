@@ -296,6 +296,47 @@ test('every card list matches after each period mark', () => {
   }), built);
   assert.equal(chosen.members.value, zeroBand.members);
   assert.equal(directoryApi.drill(built, 'members', chosen).rows.length, zeroBand.members);
+  const newer = dash.compute(source, Object.assign({}, dash.defaultState(source), { renewalTenure: 'newer' }), built);
+  const newerBands = newer.renewalRisk.lapseByBand.reduce(function (sum, band) { return sum + band.members; }, 0);
+  const newerButtons = newer.renewalRisk.byTenure.newer + newer.renewalRisk.byTenure.longer + newer.renewalRisk.byTenure.unknown + newer.renewalRisk.byTenure.thisYear;
+  assert.equal(newerBands, newer.renewalRisk.cohort);
+  assert.equal(newer.renewalRisk.byTenure.newer, newer.renewalRisk.zeroAttendance);
+  assert.equal(newerButtons, newer.renewalRisk.zeroAttendance);
+  const bandPick = dash.compute(source, Object.assign({}, dash.defaultState(source), { renewalBand: '0' }), built);
+  const buttonSum = bandPick.renewalRisk.byTenure.newer + bandPick.renewalRisk.byTenure.longer + bandPick.renewalRisk.byTenure.unknown + bandPick.renewalRisk.byTenure.thisYear;
+  assert.equal(buttonSum, bandPick.renewalRisk.zeroAttendance);
+  assert.equal(bandPick.members.value, bandPick.renewalRisk.zeroAttendance);
+  const both = dash.compute(source, Object.assign({}, dash.defaultState(source), { renewalTenure: 'newer', renewalBand: '1–2' }), built);
+  const bothButtons = both.renewalRisk.byTenure.newer + both.renewalRisk.byTenure.longer + both.renewalRisk.byTenure.unknown + both.renewalRisk.byTenure.thisYear;
+  const bothBands = both.renewalRisk.lapseByBand.reduce(function (sum, band) { return sum + band.members; }, 0);
+  const bothPicked = both.renewalRisk.lapseByBand.filter(function (band) { return band.band === '1–2'; })[0];
+  assert.equal(bothButtons, both.renewalRisk.zeroAttendance);
+  assert.equal(both.members.value, both.renewalRisk.zeroAttendance);
+  assert.equal(bothBands, both.renewalRisk.cohort);
+  assert.equal(bothPicked.members, both.renewalRisk.zeroAttendance);
+  const quiet = dash.compute(source, Object.assign({}, dash.defaultState(source), { audience: 'No-show' }), built);
+  assert.equal((quiet.pie.members || 0) + (quiet.pie.guests || 0), quiet.attendance.value);
+  assert.equal(quiet.attendance.value, 0);
+  assert.equal(quiet.pie.noShows, quiet.noShows.noShows);
+  const july = '2026-07-01:2026-07-31';
+  ['new', 'lost'].forEach(function (flow) {
+    const flowed = dash.compute(source, Object.assign({}, dash.defaultState(source), { bucket: july, flow: flow }), built);
+    const point = (flowed.gains || []).filter(function (bar) { return bar.id === july; })[0];
+    const dayBefore = directoryApi.memberRecords(built, flowed, { start: '2026-06-30', end: '2026-06-30', useFlow: true }, 'active').length;
+    assert.equal(point.active, flowed.members.value);
+    assert.equal(flowed.members.value - dayBefore, flowed.net.value);
+    assert.equal((point.joins || 0) - (point.losses || 0), flowed.net.value);
+  });
+  const typed = dash.compute(source, dash.defaultState(source), built);
+  const names = (typed.businessTypes || []).map(function (row) { return row.label || row.category; }).filter(function (name) { return name && name !== 'Other / not listed'; });
+  const chosenTypes = names.slice(-3);
+  typed.selectedBusinessTypes = chosenTypes;
+  const svg = sandbox.ABADashboardView.businessTypeBars(typed, 280, 70);
+  chosenTypes.forEach(function (name) {
+    assert.ok(svg.indexOf('data-business-type="' + name + '"') !== -1, name);
+  });
+  typed.page = 'membership';
+  assert.ok(sandbox.ABADashboardView.render(typed).indexOf('A business in more than one category is counted in each bar.') !== -1);
   const person = (built.attendance || []).filter(function (row) {
     return row.date >= '2026-07-01' && row.status === 'attended';
   })[0].name;
