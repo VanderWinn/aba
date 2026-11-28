@@ -33,7 +33,7 @@
     'Month': 'The dates and the big numbers stay on the current month inside the year at the left, through today. A past year uses June. The charts show each month of that fiscal year separately, July through the current month, each beside the same month last fiscal year. Later months are left off.',
     'Last 12 months (period)': 'Uses the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Reset filters': 'Clears every filter in one click: the year, the period, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
-    'Members': 'Active member businesses at the end of the date range. Event type, company, and attendee do not change this count. Business type, a renewal-risk group, and a joined or cancelled selection do. A partial year is the count as of today.',
+    'Members': 'Active member businesses at the end of the date range. Event type, company, attendee, and a visits or no-shows selection limit this count to the businesses involved. Business type, a renewal-risk group, and a joined or cancelled selection do too. A partial year is the count as of today.',
     'New Members': 'Business members who joined during the date range. A partial year counts only through today and is compared with the same dates one year earlier.',
     'Net Gain': 'Business members who joined minus business members who left during the date range. A partial year is year to date and is compared with the same dates last year, not the full prior year.',
     'Member Gains and Losses': 'Gained is the solid bar. Lost is the pale bar. Each year has its own solid color. A year marked YTD runs through today.',
@@ -44,12 +44,12 @@
     'No-shows': 'People who signed up and were marked no-show. The count uses status, or registration_status when status is blank. A blank or unmarked row is not a visit and not a no-show. Cancelled sign-ups are left out. A row still marked only as registered is a sign-up, not a no-show. The same filters as the other cards apply, including business type.',
     'Renewal risk': 'Members in the filtered population with no attended visit in the last 12 months, over that same population. Tenure groups split those members. The 0, 1–2, 3–5, and 6+ bars count members by visits in the prior renewal year, July through June. A guest visit counts toward a business when the visit’s company matches.',
     'Year to date': 'A fiscal year that has not ended runs through today. It is compared with the same dates one year earlier, not with the full prior year.',
-    'Membership filters': 'Event type, company, and attendee change event visits. They do not change the membership numbers. Business type, renewal risk, and a joined or cancelled bar do change the membership numbers, and they also change event visits. A guest visit counts when that visit’s company matches a selected member business.',
+    'Membership filters': 'Every filter limits every number. Event type, company, attendee, and a visits or no-shows selection keep the member businesses involved in those visits or no-shows. Business type, renewal risk, and a joined or cancelled selection do the same, and they also limit event visits. A guest visit counts when that visit’s company matches a selected member business.',
     'Attendance Distribution': 'Member visits and guest visits in the date range. The raw count comes first. The percentage is the share of visits. Choosing one limits the event numbers on this page.',
     'Visits and no-shows': 'Each percentage is that group\u2019s share of members, guests, and no-shows together: everyone who signed up and was expected. Choosing Members, Guests, or No-shows limits the event numbers on this page. A guest counts when the visit’s company matches a selected member business.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
-    'Company': 'Limits event visits on this page to the companies you select. Companies combine with OR. It does not change membership totals.',
-    'Attendee': 'Limits event visits on this page to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
+    'Company': 'Limits every number to the companies you select. A selected company stays in the membership counts even when it has no visits in the date range. Companies combine with OR.',
+    'Attendee': 'Limits every number to the member businesses of the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
     'Last month / quarter / year': 'On Events Held and Attendee Count, last month and last quarter are the same length of time shifted back one month or one quarter, and last year is the same dates in the prior fiscal year. On the business-member cards, the windows follow fiscal boundaries instead.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
@@ -583,7 +583,8 @@
       bucket: '',
       flow: '',
       renewalTenure: '',
-      renewalBand: ''
+      renewalBand: '',
+      involvement: ''
     };
   }
 
@@ -654,7 +655,8 @@
       bucket: state && state.bucket ? String(state.bucket) : '',
       flow: state && (state.flow === 'new' || state.flow === 'lost') ? state.flow : '',
       renewalTenure: state && (state.renewalTenure === 'newer' || state.renewalTenure === 'longer' || state.renewalTenure === 'other') ? state.renewalTenure : '',
-      renewalBand: state && (state.renewalBand === '0' || state.renewalBand === '1–2' || state.renewalBand === '3–5' || state.renewalBand === '6+') ? state.renewalBand : ''
+      renewalBand: state && (state.renewalBand === '0' || state.renewalBand === '1–2' || state.renewalBand === '3–5' || state.renewalBand === '6+') ? state.renewalBand : '',
+      involvement: state && (state.involvement === 'visits' || state.involvement === 'noshows') ? state.involvement : ''
     };
   }
 
@@ -692,7 +694,8 @@
       bucket: state.bucket || '',
       flow: state.flow || '',
       renewalTenure: state.renewalTenure || '',
-      renewalBand: state.renewalBand || ''
+      renewalBand: state.renewalBand || '',
+      involvement: state.involvement === 'visits' || state.involvement === 'noshows' ? state.involvement : ''
     };
   }
 
@@ -718,6 +721,7 @@
       cleared.flow = '';
       cleared.renewalTenure = '';
       cleared.renewalBand = '';
+      cleared.involvement = '';
       if (action.type === 'reset') return defaultState(data);
       return cleared;
     }
@@ -731,6 +735,7 @@
       next.rangeKind = kind;
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       if (kind === 'custom' && !listOf(next.years).length) next.years = [fiscalYearOf(isISO(data && data.asOf) ? data.asOf : '2026-11-24')];
       return next;
     }
@@ -738,6 +743,7 @@
       if (action.group === 'month' || action.group === 'quarter' || action.group === 'year') next.group = action.group;
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'dates') {
@@ -746,12 +752,14 @@
       next.to = isISO(action.to) ? action.to : '';
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'period') {
       next.period = action.period;
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       syncPeriodSlice(data, next);
       return next;
     }
@@ -761,6 +769,7 @@
       next.year = Number(action.year);
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       syncPeriodSlice(data, next);
       return next;
     }
@@ -772,12 +781,14 @@
       next.year = next.years.length ? next.years[next.years.length - 1] : fiscalYearOf(isISO(data && data.asOf) ? data.asOf : '2026-11-24');
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'focus') {
       if (next.period === 'last12') return next;
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       if (action.year) next.year = Number(action.year);
       syncPeriodSlice(data, next);
       return next;
@@ -797,6 +808,7 @@
       }
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'companies') {
@@ -808,12 +820,14 @@
       }
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'people') {
       next.people = listOf(action.people);
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'audience') {
@@ -832,18 +846,29 @@
       }
       next.bucket = '';
       next.flow = '';
+      next.involvement = '';
       return next;
     }
     if (action.type === 'bucket') {
       var periodId = action.period || action.bucket || '';
       var flow = action.flow === 'new' || action.flow === 'lost' ? action.flow : '';
-      if (next.bucket === periodId && (next.flow || '') === flow) {
+      var involvement = action.involvement === 'visits' || action.involvement === 'noshows' ? action.involvement : '';
+      var markAudience = action.audience === 'Member' || action.audience === 'Guest' || action.audience === 'No-show' ? action.audience : '';
+      if (next.bucket === periodId && (next.flow || '') === flow && (next.involvement || '') === involvement) {
         next.bucket = '';
         next.flow = '';
+        next.involvement = '';
+        if (markAudience && next.audience === markAudience) next.audience = '';
       } else {
         next.bucket = periodId;
         next.flow = flow;
+        next.involvement = involvement;
+        if (markAudience) next.audience = markAudience;
       }
+      return next;
+    }
+    if (action.type === 'involvement') {
+      next.involvement = action.involvement === 'visits' || action.involvement === 'noshows' ? action.involvement : '';
       return next;
     }
     if (action.type === 'renewalTenure') {
@@ -904,6 +929,7 @@
     if (state.flow === 'new' || state.flow === 'lost') parts.push('flow=' + state.flow);
     if (state.renewalTenure) parts.push('tenure=' + encodeURIComponent(state.renewalTenure));
     if (state.renewalBand) parts.push('band=' + encodeURIComponent(state.renewalBand));
+    if (state.involvement === 'visits' || state.involvement === 'noshows') parts.push('involve=' + state.involvement);
     return parts.join('&');
   }
 
@@ -963,6 +989,8 @@
     if (flowName === 'new' || flowName === 'lost') state.flow = flowName;
     if (tenureName === 'newer' || tenureName === 'longer' || tenureName === 'other') state.renewalTenure = tenureName;
     if (bandName === '0' || bandName === '1–2' || bandName === '3–5' || bandName === '6+') state.renewalBand = bandName;
+    var involveName = decodeHashItem(bag.involve);
+    if (involveName === 'visits' || involveName === 'noshows') state.involvement = involveName;
     return state;
   }
 
@@ -1491,12 +1519,13 @@
       slices: view.slices,
       contextLine: contextLine,
       ytdNote: ytdNote,
-      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience || listOf(view.selectedBusinessTypes).length || view.bucket || view.flow || view.renewalTenure || view.renewalBand),
+      filtersActive: !!(eventTypes.length || view.companies.length || view.people.length || pieAudience || listOf(view.selectedBusinessTypes).length || view.bucket || view.flow || view.renewalTenure || view.renewalBand || view.involvement),
       selectedBusinessTypes: listOf(view.selectedBusinessTypes),
       bucket: view.bucket || '',
       flow: view.flow || '',
       renewalTenure: view.renewalTenure || '',
       renewalBand: view.renewalBand || '',
+      involvement: view.involvement || '',
       focus: view.focus || null,
       measure: measure,
       directory: directory ? { companies: directory.companies || [], people: directory.people || [] } : null,

@@ -20,9 +20,18 @@
     return '</g>';
   }
 
-  function periodOn(view, id, flow) {
+  function periodOn(view, id, flow, involvement) {
     if (!view || !view.bucket || view.bucket !== id) return false;
-    return (view.flow || '') === (flow || '');
+    if ((view.flow || '') !== (flow || '')) return false;
+    if (involvement && (view.involvement || '') !== involvement) return false;
+    return true;
+  }
+
+  function periodAttrs(id, flow, involvement) {
+    var attrs = 'data-period="' + escapeHtml(id || '') + '"';
+    if (flow) attrs += ' data-flow="' + escapeHtml(flow) + '"';
+    if (involvement === 'visits' || involvement === 'noshows') attrs += ' data-involvement="' + involvement + '"';
+    return attrs;
   }
 
   function escapeHtml(value) {
@@ -140,7 +149,7 @@
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function yearCountSvg(bars, kind, view, w, h) {
+  function yearCountSvg(bars, kind, view, w, h, involvement) {
     w = w || 420;
     h = h || 132;
     var max = 1;
@@ -157,16 +166,16 @@
       var height = ((bar.value || 0) / max) * plot;
       var x = x0 + index * (bw + gap);
       var y = base - height;
-      var on = periodOn(view, bar.id, '');
+      var on = periodOn(view, bar.id, '', involvement);
       var dim = view && view.bucket && !on ? ' opacity="0.35"' : '';
-      parts.push(markOpen(on, bar.label + ' ' + kind, 'data-period="' + escapeHtml(bar.id || '') + '"'));
+      parts.push(markOpen(on, bar.label + ' ' + kind, periodAttrs(bar.id || '', '', involvement)));
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 2).toFixed(1) + '" fill="' + bar.color + '"' + dim + (on ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' ' + (bar.value || 0) + '</title></rect>' + markClose());
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.value || 0) + '</text>');
     });
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ' by fiscal year">' + parts.join('') + '</svg>';
   }
 
-  function groupedSvg(groups, key, kind, view) {
+  function groupedSvg(groups, key, kind, view, involvement) {
     var sample = (groups[0] && groups[0].bars) || [];
     var w = Math.max(420, groups.length * (sample.length * 16 + 28));
     var h = 150;
@@ -186,9 +195,10 @@
         var height = ((bar[key] || 0) / max) * plot;
         var x = left + barIndex * bw;
         var y = base - height;
-        var on = periodOn(view, bar.start && bar.end ? bar.start + ':' + bar.end : '', '');
+        var periodId = bar.start && bar.end ? bar.start + ':' + bar.end : '';
+        var on = periodOn(view, periodId, '', involvement);
         var dim = view && view.bucket && !on ? ' opacity="0.35"' : '';
-        parts.push(markOpen(on, bar.label + ' ' + group.label, 'data-period="' + escapeHtml(bar.start && bar.end ? bar.start + ':' + bar.end : '') + '"'));
+        parts.push(markOpen(on, bar.label + ' ' + group.label, periodAttrs(periodId, '', involvement)));
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(bw - 2, 4).toFixed(1) + '" height="' + Math.max(height, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"' + dim + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + escapeHtml(bar.label + ' ' + group.label) + ' ' + (bar[key] || 0) + '</title></rect>' + markClose());
       });
       parts.push('<text x="' + (8 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
@@ -580,6 +590,9 @@ function stepControl(step, enabled, compact, attrs) {
     if (view.renewalBand) {
       chips.push('<button type="button" class="filter-chip" data-clear-band>Renewal risk: ' + escapeHtml(view.renewalBand) + ' visits <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
     }
+    if (view.involvement === 'visits' || view.involvement === 'noshows') {
+      chips.push('<button type="button" class="filter-chip" data-clear-involvement>' + (view.involvement === 'noshows' ? 'No-shows in this period' : 'Visits in this period') + ' <span aria-hidden="true">×</span><span class="sr-only"> Remove</span></button>');
+    }
     if (!chips.length) return '';
     return '<div class="filter-chips" aria-label="Active filters">' + chips.join('') + '</div>';
   }
@@ -725,7 +738,7 @@ function stepControl(step, enabled, compact, attrs) {
     return index % 2 === 0 || index === count - 1;
   }
 
-  function solidLineSvg(values, labels, kind, color, compact, w, h, ids, view) {
+  function solidLineSvg(values, labels, kind, color, compact, w, h, ids, view, involvement) {
     var n = values.length || 1;
     w = w || (n > 8 ? Math.max(520, n * (compact ? 36 : 48)) : 420);
     h = h || (n > 6 ? (compact ? 180 : 200) : 150);
@@ -750,8 +763,8 @@ function stepControl(step, enabled, compact, attrs) {
       var y = yy(value);
       var tip = escapeHtml((labels[index] || '') + ' ' + value);
       var periodId = (ids && ids[index]) || '';
-      var on = periodOn(view, periodId, '');
-      parts.push(markOpen(on, (labels[index] || kind) + ' ' + value, 'data-period="' + escapeHtml(periodId) + '"'));
+      var on = periodOn(view, periodId, '', involvement);
+      parts.push(markOpen(on, (labels[index] || kind) + ' ' + value, periodAttrs(periodId, '', involvement)));
       parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="11" fill="transparent"' + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></circle>');
       parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.4" fill="' + color + '"' + (view && view.bucket && !on ? ' opacity="0.35"' : '') + '/>' + markClose());
       var crowded = n > 6;
@@ -765,7 +778,7 @@ function stepControl(step, enabled, compact, attrs) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
-  function multiLineSvg(groups, key, kind, compact, view, w, h) {
+  function multiLineSvg(groups, key, kind, compact, view, w, h, involvement) {
     var sample = (groups[0] && groups[0].bars) || [];
     var n = groups.length || 1;
     w = w || Math.max(compact ? 420 : 560, n * (compact ? 34 : 46));
@@ -816,8 +829,8 @@ function stepControl(step, enabled, compact, attrs) {
         segment.push(x.toFixed(1) + ',' + y.toFixed(1));
         var tip = escapeHtml(bar.label + ' ' + group.label + ' ' + (bar[key] || 0));
         var periodId = bar.start && bar.end ? bar.start + ':' + bar.end : '';
-        var on = periodOn(view, periodId, '');
-        parts.push(markOpen(on, bar.label + ' ' + group.label + ' ' + (bar[key] || 0), 'data-period="' + escapeHtml(periodId) + '"'));
+        var on = periodOn(view, periodId, '', involvement);
+        parts.push(markOpen(on, bar.label + ' ' + group.label + ' ' + (bar[key] || 0), periodAttrs(periodId, '', involvement)));
         parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="11" fill="transparent"' + (on ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></circle>');
         parts.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.2" fill="' + seriesBar.color + '"' + (view && view.bucket && !on ? ' opacity="0.35"' : '') + '/>' + markClose());
         var crowded = n > 6 || sample.length > 1;
@@ -933,24 +946,25 @@ function stepControl(step, enabled, compact, attrs) {
   function chartFor(view, kind, w, h) {
     var title = kind === 'events' ? 'Events held' : (kind === 'noshows' ? 'No-shows' : 'Event visits');
     var key = kind === 'events' ? 'events' : (kind === 'noshows' ? 'noShows' : 'attendance');
+    var involvement = kind === 'noshows' ? 'noshows' : 'visits';
     if (view.group === 'month' || view.group === 'quarter') {
-      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, view, w, h);
+      if (view.groups && view.groups.length) return multiLineSvg(view.groups, key, title, view.mobile, view, w, h, involvement);
       var values = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
       var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
       var ids = (view.monthBuckets || []).map(function (bucket) { return bucket.id; });
       var color = (view.yearBars && view.yearBars[0] && view.yearBars[0].color) || TEAL;
-      return solidLineSvg(values, labels, title, color, view.mobile, w, h, ids, view);
+      return solidLineSvg(values, labels, title, color, view.mobile, w, h, ids, view, involvement);
     }
     if (view.group === 'year' && view.yearBars) {
       return yearCountSvg(view.yearBars.map(function (bar) {
         return { label: bar.label, value: bar[key], color: bar.color, id: bar.start + ':' + bar.end };
-      }), title, view, w, h);
+      }), title, view, w, h, involvement);
     }
-    if (view.groups) return groupedSvg(view.groups, key, title, view);
+    if (view.groups) return groupedSvg(view.groups, key, title, view, involvement);
     var fallback = kind === 'events' ? (view.eventSeries || []) : (kind === 'noshows' ? (view.noShowSeries || []) : (view.attendanceSeries || []));
     var fallbackLabels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var fallbackIds = (view.monthBuckets || []).map(function (bucket) { return bucket.id; });
-    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h, fallbackIds, view);
+    return solidLineSvg(fallback, fallbackLabels, title, TEAL, view.mobile, w, h, fallbackIds, view, involvement);
   }
 
   function membershipCombo(view, w, h) {
@@ -1210,7 +1224,7 @@ function stepControl(step, enabled, compact, attrs) {
       '</div><div class="chart-grid">' + gainsCard(view) +
       card('Events held', 'Events Held', '<div class="chart-slot" data-chart="event-types">' + eventTypeBars(view) + '</div>', ' card-events', 'page:events', 'View events and attendance') +
       card('Total event visits', 'Attendance', '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance', 'page:events', 'View events and attendance') +
-      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', view.audience === 'No-show' || view.involvement === 'noshows' ? 'noshows' : 'attendance', view.audience === 'No-show' || view.involvement === 'noshows' ? 'View the no-show list' : 'View the visit list') +
       '</div>';
   }
 
@@ -1274,7 +1288,7 @@ function stepControl(step, enabled, compact, attrs) {
       var cx = (index + 0.5) * col;
       var x = Math.max(4, cx - bw / 2);
       var y = base - barH;
-      var color = members ? '#3F768B' : '#7D949C';
+      var color = row.band === '0' ? CLAY : (members ? '#3F768B' : '#7D949C');
       var bandOn = view && view.renewalBand === row.band;
       var bandDim = view && view.renewalBand && !bandOn ? ' opacity="0.35"' : '';
       var label = String(members);
@@ -1313,8 +1327,9 @@ function stepControl(step, enabled, compact, attrs) {
       tenureButton('longer', shortLongerLabel(risk.longerLabel), tenure.longer || 0, false) +
       tenureButton('other', 'Other', other, false) + '</div>';
     var tip = ' Other is ' + unknown + ' with no join date and ' + thisYear + ' who joined this fiscal year. Last renewal year: ' + cycle + ' members, by events attended.';
+    var atRisk = !view.renewalBand || view.renewalBand === '0';
     return card('Renewal risk', 'Renewal risk',
-      '<p class="kpi-num">' + risk.zeroAttendance + '</p>' +
+      '<p class="kpi-num' + (atRisk ? ' tone-down' : '') + '">' + risk.zeroAttendance + '</p>' +
       '<p class="period-tag">of ' + active + ' members · ' + pct + '%</p>' +
       parts +
       '<div class="chart-slot" data-chart="lapse">' + lapseChart(risk.lapseByBand, view) + '</div>',
@@ -1329,7 +1344,7 @@ function stepControl(step, enabled, compact, attrs) {
       card('Total event visits', 'Attendance', numberBlock(String(view.attendance.value), view.attendance.tone) + '<div class="chart-slot" data-chart="visits">' + chartFor(view, 'visits') + '</div>' + chartKey(legendItems(view)), ' card-attendance kpi-visits', 'attendance', 'View the visit list') +
       noShowCard(view) +
       renewalCard(view) +
-      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', 'attendance', 'View the visit list') +
+      card(visitTitle, visitTitle === 'Visits and no-shows' ? 'Visits and no-shows' : 'Attendance Distribution', '<div class="chart-slot" data-chart="split">' + visitSplit(view) + '</div>', ' card-pie', view.audience === 'No-show' || view.involvement === 'noshows' ? 'noshows' : 'attendance', view.audience === 'No-show' || view.involvement === 'noshows' ? 'View the no-show list' : 'View the visit list') +
       '</div>';
   }
 
@@ -1376,7 +1391,7 @@ function stepControl(step, enabled, compact, attrs) {
     var body = emptyNote + (page === 'membership' ? membership(view) : (page === 'events' ? eventsPage(view) : overview(view)));
     var tipExtra = '';
     if (view.ytdNote) tipExtra += ' ' + view.ytdNote;
-    if (page === 'membership') tipExtra += ' Event type, company, and attendee do not change these membership numbers. Business type, renewal risk, and a joined or cancelled selection do. A guest visit counts when that visit’s company matches a selected member business.';
+    if (page === 'membership') tipExtra += ' Event type, company, attendee, and a visits or no-shows selection limit these numbers to the businesses involved. Business type, renewal risk, and a joined or cancelled selection do too. A guest visit counts when that visit’s company matches a selected member business.';
     var contextTip = tipExtra ? hint('', view.ytdNote ? 'Year to date' : 'Membership filters', true, tipExtra) : '';
     return docbar(view) + '<div class="shell">' + viewTabs(view) + controls(view) +
       '<p class="context-line">' + escapeHtml(view.contextLine || '') + contextTip + '</p>' + filterBtn +

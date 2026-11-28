@@ -379,6 +379,16 @@
       }
     });
 
+    var quietCompany = COMPANIES[COMPANIES.length - 1];
+    var noshowKeep = {};
+    noshowKeep[foldLabel(COMPANIES[2])] = true;
+    noshowKeep[foldLabel(COMPANIES[3])] = true;
+    attendance.forEach(function (row) {
+      if (foldLabel(row.company) === foldLabel(quietCompany)) row.company = COMPANIES[1];
+      if (row.eventType === 'Happy Hour' && foldLabel(row.company) === foldLabel(COMPANIES[0])) row.company = COMPANIES[1];
+      if (rowIsNoShow(row) && !noshowKeep[foldLabel(row.company)]) row.company = COMPANIES[2];
+    });
+
     var directoryPeople = [];
     var seen = {};
     function remember(person) {
@@ -608,20 +618,32 @@
     };
   }
 
-  function census(directory, view) {
+  function census(directory, view, skipInvolved) {
     var asOf = (view && (view.asOf || view.today)) || '2026-11-24';
     var period = focusWindow(view);
     var businessKey = ((view && view.selectedBusinessTypes) || []).join(',');
-    var key = asOf + '|' + (period.chosen ? period.start + ':' + period.end : '') + '|' + businessKey;
-    if (view && view._censusKey === key && view._census) return view._census;
+    var involvedKey = skipInvolved ? 'skip' : [
+      view && view.audience || '',
+      ((view && view.eventTypes) || []).join('|'),
+      ((view && view.companies) || []).join('|'),
+      ((view && view.people) || []).join('|'),
+      view && view.involvement || '',
+      view && view.bucket || ''
+    ].join('~');
+    var key = asOf + '|' + (period.chosen ? period.start + ':' + period.end : '') + '|' + businessKey + '|' + involvedKey;
+    var cache = skipInvolved ? '_censusSkip' : '_census';
+    var cacheKey = skipInvolved ? '_censusSkipKey' : '_censusKey';
+    if (view && view[cacheKey] === key && view[cache]) return view[cache];
     var sourceRows = memberUniverse(directory, view).filter(function (row) {
       if (row.audience && row.audience !== 'Member') return false;
-      return matchesBusinessType(row, (view && view.selectedBusinessTypes) || []);
+      if (!matchesBusinessType(row, (view && view.selectedBusinessTypes) || [])) return false;
+      if (!skipInvolved && !involvedOk(directory, row, view)) return false;
+      return true;
     });
     var built = buildCensus(directory || { membership: [], attendance: [] }, asOf, period, sourceRows);
     if (view) {
-      view._census = built;
-      view._censusKey = key;
+      view[cache] = built;
+      view[cacheKey] = key;
     }
     return built;
   }
@@ -660,7 +682,7 @@
     var key = business.join('|') + '~' + flow + '~' + (view.renewalTenure || '') + '~' + (view.renewalBand || '') + '~' + (view.bucket || '');
     if (view && view._companyKey === key) return view._companySet;
     var set = {};
-    census(directory, view).rows.forEach(function (profile) {
+    census(directory, view, true).rows.forEach(function (profile) {
       if (!baseProfile(profile, view)) return;
       if (renewal && !inRenewalSlice(profile, view)) return;
       if (!flow && !renewal && !profile.current) return;
@@ -675,6 +697,66 @@
 
   function companyAllowed(row, directory, view) {
     var set = companySet(directory, view);
+    if (!set) return true;
+    return !!set[foldLabel(row && row.company)];
+  }
+
+  function eventSideOn(view) {
+    if (!view) return false;
+    if (view.audience === 'Member' || view.audience === 'Guest' || view.audience === 'No-show') return true;
+    if ((view.eventTypes || []).length || (view.companies || []).length || (view.people || []).length) return true;
+    return view.involvement === 'visits' || view.involvement === 'noshows';
+  }
+
+  function measureSpan(view) {
+    var focus = focusWindow(view);
+    if (focus.chosen) return { start: focus.start, end: focus.end };
+    var range = view && (view.measure || view.range);
+    if (range && range.start && range.end) return { start: range.start, end: range.end };
+    return { start: '1970-01-01', end: '9999-12-31' };
+  }
+
+  function involvedCompanySet(directory, view) {
+    if (!eventSideOn(view)) return null;
+    var span = measureSpan(view);
+    var key = [
+      view.audience || '',
+      (view.eventTypes || []).join('|'),
+      (view.companies || []).join('|'),
+      (view.people || []).join('|'),
+      view.involvement || '',
+      span.start,
+      span.end,
+      (view.selectedBusinessTypes || []).join('|'),
+      view.flow || '',
+      view.renewalTenure || '',
+      view.renewalBand || '',
+      view.bucket || ''
+    ].join('~');
+    if (view._involvedKey === key) return view._involvedSet;
+    var noshow = view.involvement === 'noshows' || (view.involvement !== 'visits' && view.audience === 'No-show');
+    var set = {};
+    function add(company) {
+      var folded = foldLabel(company);
+      if (folded) set[folded] = true;
+    }
+    if (noshow) {
+      var summary = noShowSummary(directory, view, span.start, span.end);
+      ((summary && summary.rows) || []).forEach(function (row) { add(row.company); });
+    } else {
+      var audience = view.audience === 'No-show' ? '' : (view.audience || '');
+      attendanceRows(directory, span.start, span.end, view.eventTypes || [], audience, view).forEach(function (row) {
+        add(row.company);
+      });
+    }
+    (view.companies || []).forEach(add);
+    view._involvedKey = key;
+    view._involvedSet = set;
+    return set;
+  }
+
+  function involvedOk(directory, row, view) {
+    var set = involvedCompanySet(directory, view);
     if (!set) return true;
     return !!set[foldLabel(row && row.company)];
   }
@@ -938,6 +1020,7 @@
     memberUniverse(directory, view).forEach(function (row) {
       if (row.audience && row.audience !== 'Member') return;
       if (!matchesBusinessType(row, selected)) return;
+      if (!involvedOk(directory, row, view)) return;
       if (renewalRows && !renewalRows[rowKey(row)]) return;
       var joined = row.joined || '';
       var lost = row.lost || '';
@@ -1273,6 +1356,7 @@
     drill: drill,
     memberRecords: memberRecords,
     renewalStats: renewalStats,
+    involvedCompanySet: involvedCompanySet,
     noShowSummary: noShowSummary,
     rowIsNoShow: rowIsNoShow,
     rowIsSignUp: rowIsSignUp,

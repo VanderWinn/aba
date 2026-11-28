@@ -372,7 +372,13 @@
     }
     var period = event.target.closest('[data-period]');
     if (period) {
-      update({ type: 'bucket', period: period.getAttribute('data-period'), flow: period.getAttribute('data-flow') || '' });
+      update({
+        type: 'bucket',
+        period: period.getAttribute('data-period'),
+        flow: period.getAttribute('data-flow') || '',
+        involvement: period.getAttribute('data-involvement') || '',
+        audience: period.getAttribute('data-audience') || ''
+      });
       return;
     }
     var tenure = event.target.closest('[data-renewal-tenure]');
@@ -386,7 +392,11 @@
       return;
     }
     if (event.target.closest('[data-clear-period]')) {
-      update({ type: 'bucket', period: state.bucket, flow: state.flow || '' });
+      update({ type: 'bucket', period: state.bucket, flow: state.flow || '', involvement: state.involvement || '' });
+      return;
+    }
+    if (event.target.closest('[data-clear-involvement]')) {
+      update({ type: 'involvement', involvement: '' });
       return;
     }
     if (event.target.closest('[data-clear-flow]')) {
@@ -512,7 +522,7 @@
     }
     if (hit && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
-      if (hit.hasAttribute('data-period')) update({ type: 'bucket', period: hit.getAttribute('data-period'), flow: hit.getAttribute('data-flow') || '' });
+      if (hit.hasAttribute('data-period')) update({ type: 'bucket', period: hit.getAttribute('data-period'), flow: hit.getAttribute('data-flow') || '', involvement: hit.getAttribute('data-involvement') || '', audience: hit.getAttribute('data-audience') || '' });
       else if (hit.hasAttribute('data-type')) update({ type: 'eventType', eventType: hit.getAttribute('data-type') });
       else if (hit.hasAttribute('data-business-type')) update({ type: 'businessType', businessType: hit.getAttribute('data-business-type') });
       else if (hit.hasAttribute('data-audience')) update({ type: 'audience', audience: hit.getAttribute('data-audience') });

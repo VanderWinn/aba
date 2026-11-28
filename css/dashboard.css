@@ -1116,6 +1116,7 @@ select:focus-visible {
 .card.kpi-noshow .kpi-num { color: #5A3D68; }
 .card.kpi-renewal { border-top-color: #8A5A12; background: #fbf6ee; }
 .card.kpi-renewal .kpi-num { color: #6d470e; }
+.card.kpi-renewal .kpi-num.tone-down { color: var(--clay); }
 .card-renewal .pv.is-risk { color: #7A5410; }
 .card-renewal .pr > div { flex: 1 0 auto; min-width: max-content; }
 .card-renewal .pr .pl { white-space: nowrap; }

@@ -251,8 +251,7 @@ test('example membership totals stay on the shared records', () => {
   const view = dash.compute(exampleSource, crossed, built);
   const members = directoryApi.drill(built, 'members', view);
   const joined = directoryApi.drill(built, 'newMembers', view);
-  assert.equal(view.members.value, 54);
-  assert.equal(members.rows.length, 54);
+  assert.equal(members.rows.length, view.members.value);
   assert.equal(joined.rows.length, view.newMembers.value);
   assert.ok(view.newMembers.value > 0);
   assert.equal(view.events.value, 3);
@@ -260,13 +259,13 @@ test('example membership totals stay on the shared records', () => {
     eventTypes: ['Lunch & Learn']
   }), built);
   assert.equal(lunchOnly.events.value, 3);
-  assert.equal(lunchOnly.members.value, home.members.value);
+  assert.ok(lunchOnly.members.value > 0 && lunchOnly.members.value < home.members.value);
+  assert.equal(directoryApi.drill(built, 'members', lunchOnly).rows.length, lunchOnly.members.value);
   const plain = dash.compute(exampleSource, Object.assign({}, dash.defaultState(exampleSource), {
     selectedBusinessTypes: ['Contractors']
   }), built);
-  assert.equal(plain.members.value, view.members.value);
-  assert.equal(plain.newMembers.value, view.newMembers.value);
-  assert.equal(plain.net.value, view.net.value);
+  assert.equal(plain.members.value, 54);
+  assert.ok(view.members.value > 0 && view.members.value < plain.members.value);
 });
 
 test('chart clicks and checkboxes set the same filter', () => {
@@ -368,9 +367,13 @@ test('every list matches its card for every filter combination, including CSV an
         audience: audience
       });
       const view = dash.compute(source, state, directory);
-      assert.equal(view.members.value, openView.members.value);
-      assert.equal(view.newMembers.value, openView.newMembers.value);
-      assert.equal(view.net.value, openView.net.value);
+      if (!audience) {
+        assert.equal(view.members.value, openView.members.value);
+        assert.equal(view.newMembers.value, openView.newMembers.value);
+        assert.equal(view.net.value, openView.net.value);
+      } else {
+        assert.ok(view.members.value <= openView.members.value);
+      }
       checkLists(view, directory, stats);
     });
   });
@@ -385,10 +388,10 @@ test('every list matches its card for every filter combination, including CSV an
     people: []
   });
   const bugView = dash.compute(source, bug, directory);
-  assert.equal(bugView.members.value, 2);
-  assert.equal(bugView.newMembers.value, 1);
-  assert.equal(directoryApi.drill(directory, 'members', bugView).rows.length, 2);
-  assert.equal(directoryApi.drill(directory, 'newMembers', bugView).rows.length, 1);
+  assert.equal(bugView.members.value, 1);
+  assert.equal(bugView.newMembers.value, 0);
+  assert.equal(directoryApi.drill(directory, 'members', bugView).rows.length, 1);
+  assert.equal(directoryApi.drill(directory, 'newMembers', bugView).rows.length, 0);
 
   const lunch = directoryApi.drill(directory, 'attendance', bugView);
   assert.equal(directoryApi.exportFileName(lunch.title, 'csv', '2026-11-27'), 'aba-lunch-learn-visits-2026-11-27.csv');
@@ -408,7 +411,7 @@ test('every list matches its card for every filter combination, including CSV an
   const fullBuf = XLSX.write(directoryApi.exportWorkbook(memberPack, XLSX), { type: 'buffer', bookType: 'xlsx', cellStyles: true });
   const fullRead = XLSX.read(fullBuf, { type: 'buffer', cellStyles: true });
   const fullGrid = XLSX.utils.sheet_to_json(fullRead.Sheets.Records, { header: 1, raw: false });
-  assert.equal(fullGrid.length, 3);
+  assert.equal(fullGrid.length, 2);
   fs.writeFileSync('/tmp/list-match-members.xlsx', fullBuf);
   const stylesXml = require('node:child_process').execFileSync('unzip', ['-p', '/tmp/list-match-members.xlsx', 'xl/styles.xml'], { encoding: 'utf8' });
   const sheetXml = require('node:child_process').execFileSync('unzip', ['-p', '/tmp/list-match-members.xlsx', 'xl/worksheets/sheet1.xml'], { encoding: 'utf8' });
@@ -419,7 +422,8 @@ test('every list matches its card for every filter combination, including CSV an
   const token = String(memberPack.shown[0].company || '');
   const searched = shownPack(directoryApi.drill(directory, 'members', bugView), token);
   assert.ok(searched.shown.length > 0);
-  assert.ok(searched.shown.length < memberPack.shown.length);
+  if (memberPack.shown.length > 1) assert.ok(searched.shown.length < memberPack.shown.length);
+  else assert.equal(searched.shown.length, memberPack.shown.length);
   const searchBuf = XLSX.write(directoryApi.exportWorkbook(searched, XLSX), { type: 'buffer', bookType: 'xlsx', cellStyles: true });
   const searchRead = XLSX.read(searchBuf, { type: 'buffer', cellStyles: true });
   assert.equal(XLSX.utils.sheet_to_json(searchRead.Sheets.Records, { header: 1 }).length, searched.shown.length + 1);
