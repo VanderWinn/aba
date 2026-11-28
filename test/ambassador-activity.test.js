@@ -35,11 +35,29 @@ test('two shifts at one event count as one event and two shifts', () => {
   assert.equal(numbers.attendanceVerified, false);
   const upcoming = api.lists(source, Object.assign(api.defaultState(), { ambassador: 'Blake Placeholder' }), 'upcoming');
   assert.equal(upcoming.rows.length, 1);
-  assert.equal(upcoming.rows[0][3], '2026-12-09');
-  assert.match(upcoming.rows[0][4], /4:30 PM/);
+  assert.equal(upcoming.rows[0][0], 'Wed Dec 9 · 4:30–6:30 PM · Blake Placeholder · Networking Ambassador');
+  const periods = api.shiftPeriods(source, api.defaultState()).map(function (row) { return row.name; });
+  assert.deepEqual(periods, ['Nov', 'Dec']);
+  assert.deepEqual(api.shiftPeriods(source, Object.assign(api.defaultState(), { group: 'quarter' })).map(function (row) { return row.name; }), ['Q4']);
   const html = viewApi.render(source, api.defaultState(), api.metrics(source, api.defaultState()), '');
   assert.match(html, /Events Worked is omitted/);
-  assert.equal(html.includes('Events Worked</'), false);
+  assert.equal(html.includes('scope-note'), false);
+  assert.equal(html.includes('<select'), false);
+  assert.match(html, /class="pseg"/);
+  assert.match(html, /class="side"/);
+  assert.match(html, /Set-Up \+ Clean-Up/);
+  assert.match(html, /Wed Dec 9 · 4:30–6:30 PM · Blake Placeholder · Networking Ambassador/);
+  assert.equal(html.includes('2026-11'), false);
+  assert.equal(html.includes('Folder status'), false);
+  assert.equal(html.includes('class="share"'), false);
+  const folders = viewApi.render(source, Object.assign(api.defaultState(), { page: 'folders' }), api.metrics(source, Object.assign(api.defaultState(), { page: 'folders' })), '');
+  assert.match(folders, /Blake Placeholder/);
+  assert.match(folders, /Assigned to/);
+  assert.match(folders, /Casey Demo/);
+  assert.equal(folders.includes('>Role<'), false);
+  const companies = viewApi.render(source, Object.assign(api.defaultState(), { page: 'companies' }), api.metrics(source, api.defaultState()), '');
+  assert.equal(companies.includes('Event type'), false);
+  assert.equal(companies.includes('>Role<'), false);
 });
 
 test('two ambassadors cannot claim the same company, including at the same time', async () => {
@@ -73,6 +91,25 @@ test('folder completion does not change ownership', () => {
   const allowed = api.reassign(source, 'Harbor & Co.', 'Avery Sample', 'Avery Sample');
   assert.equal(allowed.ok, true);
   assert.equal(source.owners.filter(function (row) { return row.company === 'Harbor & Co.'; })[0].ambassador, 'Avery Sample');
+  const shown = api.deliveriesIn(source, api.defaultState()).filter(function (row) { return row.company === 'Harbor & Co.'; })[0];
+  assert.equal(shown.ambassador, 'Avery Sample');
+  assert.equal(shown.assignedTo, 'Casey Demo');
+  assert.equal(source.deliveries.filter(function (row) { return row.company === 'Northwind Cafe'; })[0].assignedTo, 'Casey Demo');
+});
+
+test('the folder ambassador is the current owner after a claim and a reassign', () => {
+  const source = fresh();
+  const before = api.deliveriesIn(source, api.defaultState()).filter(function (row) { return row.company === 'Harbor & Co.'; })[0];
+  assert.equal(before.ambassador, 'Blake Placeholder');
+  assert.equal(before.assignedTo, 'Casey Demo');
+  assert.equal(api.claim(source, 'Northwind Cafe', 'Avery Sample').ok, true);
+  const claimed = api.deliveriesIn(source, api.defaultState()).filter(function (row) { return row.company === 'Northwind Cafe'; })[0];
+  assert.equal(claimed.ambassador, 'Avery Sample');
+  assert.equal(api.reassign(source, 'Harbor & Co.', 'Drew Fictitious', 'Avery Sample').ok, true);
+  const moved = api.deliveriesIn(source, api.defaultState()).filter(function (row) { return row.company === 'Harbor & Co.'; })[0];
+  assert.equal(moved.ambassador, 'Drew Fictitious');
+  assert.equal(moved.assignedTo, 'Casey Demo');
+  assert.equal(moved.completedBy, '');
 });
 
 test('every clickable mark keeps the list equal to the card', () => {
@@ -156,18 +193,21 @@ test('clicking every mark keeps the record list equal to the card', async () => 
       await listMatches('Shifts');
       await page.locator('.filter-chip').click();
     }
-    await page.selectOption('[data-event-type]', 'Lunch & Learn');
+    const overviewScroll = await page.evaluate(function () { return document.documentElement.scrollHeight - window.innerHeight; });
+    assert.ok(overviewScroll <= 0, 'overview scrolls by ' + overviewScroll);
+    await page.locator('[data-event-option="Lunch & Learn"]').check();
     await listMatches('Events');
-    await page.selectOption('[data-role]', 'Set-Up');
+    await page.locator('[data-role-option="Set-Up"]').check();
     await listMatches('Shifts');
-    await page.selectOption('[data-range]', 'last12');
+    await page.locator('[data-menu-toggle="range"]').click();
+    await page.locator('[data-range="last12"]').check();
     await listMatches('Upcoming');
     await page.click('[data-amb-page="companies"]');
     await listMatches('Uncovered');
-    await page.selectOption('[data-folder-status]', 'Uncovered');
+    await page.locator('[data-folder-option="Uncovered"]').check();
     await listMatches('Uncovered');
     await page.click('[data-amb-page="folders"]');
-    await page.selectOption('[data-folder-status]', 'Delivered');
+    await page.locator('[data-folder-option="Delivered"]').check();
     await listMatches('Delivered');
     await listMatches('Named credit');
     const overflow = await page.evaluate(function () { return document.documentElement.scrollHeight - window.innerHeight; });

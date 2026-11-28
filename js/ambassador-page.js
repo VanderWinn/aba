@@ -17,83 +17,83 @@
     root.innerHTML = viewApi.render(source, state, numbers, message) + viewApi.drill(pack);
   }
 
+  function setFilter(action) {
+    var result = model.apply(source, state, action);
+    state = result.state;
+    message = result.error || '';
+    paint();
+  }
+
   document.addEventListener('click', function (event) {
-    var target = event.target.closest('[data-amb-page], [data-clear], [data-drill], [data-drill-close], [data-claim], [data-deliver], [data-ambassador-bar], [data-company-bar], [data-folder-bar]');
+    var target = event.target.closest('[data-amb-page], [data-clear], [data-drill], [data-drill-close], [data-claim], [data-deliver], [data-ambassador-bar], [data-company-bar], [data-folder-bar], [data-event-bar], [data-group], [data-menu-toggle], [data-reassign-name]');
     if (!target) return;
     if (target.hasAttribute('data-drill-close')) { openDrill = ''; paint(); return; }
     if (target.hasAttribute('data-drill')) { openDrill = target.getAttribute('data-drill'); paint(); return; }
+    if (target.hasAttribute('data-menu-toggle')) {
+      setFilter({ type: 'menu', menu: target.getAttribute('data-menu-toggle') });
+      return;
+    }
+    if (target.hasAttribute('data-group')) {
+      setFilter({ type: 'group', group: target.getAttribute('data-group') });
+      return;
+    }
+    if (target.hasAttribute('data-reassign-name')) {
+      setFilter({ type: 'reassign', company: target.getAttribute('data-reassign-company'), ambassador: target.getAttribute('data-reassign-name') });
+      return;
+    }
     if (target.hasAttribute('data-amb-page')) {
-      var result = model.apply(source, state, { type: 'page', page: target.getAttribute('data-amb-page') });
-      state = result.state;
-      message = '';
-      paint();
+      setFilter({ type: 'page', page: target.getAttribute('data-amb-page') });
       return;
     }
     if (target.hasAttribute('data-clear')) {
       var key = target.getAttribute('data-clear');
-      if (key === 'all') state = model.defaultState();
-      else {
-        var blank = { type: key };
-        if (key === 'ambassador') blank.ambassador = state.ambassador;
-        if (key === 'eventType') blank.eventType = state.eventType;
-        if (key === 'role') blank.role = state.role;
-        if (key === 'company') blank.company = state.company;
-        if (key === 'folderStatus') blank.folderStatus = state.folderStatus;
-        state = model.apply(source, state, blank).state;
+      if (key === 'all') {
+        var actor = state.actor;
+        state = model.defaultState();
+        state.actor = actor;
+        message = '';
+        paint();
+        return;
       }
-      message = '';
-      paint();
+      if (key === 'range') { setFilter({ type: 'range', rangeKind: 'fy' }); return; }
+      var blank = { type: key, assign: true };
+      setFilter(blank);
       return;
     }
     if (target.hasAttribute('data-ambassador-bar')) {
-      state = model.apply(source, state, { type: 'ambassador', ambassador: target.getAttribute('data-ambassador-bar') }).state;
-      message = '';
-      paint();
+      setFilter({ type: 'ambassador', ambassador: target.getAttribute('data-ambassador-bar') });
+      return;
+    }
+    if (target.hasAttribute('data-event-bar')) {
+      setFilter({ type: 'eventType', eventType: target.getAttribute('data-event-bar') });
       return;
     }
     if (target.hasAttribute('data-company-bar')) {
-      state = model.apply(source, state, { type: 'company', company: target.getAttribute('data-company-bar') }).state;
-      message = '';
-      paint();
+      setFilter({ type: 'company', company: target.getAttribute('data-company-bar') });
       return;
     }
     if (target.hasAttribute('data-folder-bar')) {
-      state = model.apply(source, state, { type: 'folderStatus', folderStatus: target.getAttribute('data-folder-bar') }).state;
-      message = '';
-      paint();
+      setFilter({ type: 'folderStatus', folderStatus: target.getAttribute('data-folder-bar') });
       return;
     }
     if (target.hasAttribute('data-claim')) {
-      var claimResult = model.apply(source, state, { type: 'claim', company: target.getAttribute('data-claim') });
-      state = claimResult.state;
-      message = claimResult.error;
-      paint();
+      setFilter({ type: 'claim', company: target.getAttribute('data-claim') });
       return;
     }
-    if (target.hasAttribute('data-deliver')) {
-      var delivery = model.apply(source, state, { type: 'deliver', company: target.getAttribute('data-deliver') });
-      state = delivery.state;
-      message = delivery.error;
-      paint();
-    }
+    if (target.hasAttribute('data-deliver')) setFilter({ type: 'deliver', company: target.getAttribute('data-deliver') });
   });
 
   document.addEventListener('change', function (event) {
     var node = event.target;
     var action = null;
-    if (node.hasAttribute('data-range')) action = { type: 'range', rangeKind: node.value };
-    if (node.hasAttribute('data-group')) action = { type: 'group', group: node.value };
-    if (node.hasAttribute('data-ambassador')) action = { type: 'ambassador', ambassador: node.value };
-    if (node.hasAttribute('data-event-type')) action = { type: 'eventType', eventType: node.value };
-    if (node.hasAttribute('data-role')) action = { type: 'role', role: node.value };
-    if (node.hasAttribute('data-company')) action = { type: 'company', company: node.value };
-    if (node.hasAttribute('data-folder-status')) action = { type: 'folderStatus', folderStatus: node.value };
-    if (node.hasAttribute('data-actor')) action = { type: 'actor', actor: node.value };
-    if (node.hasAttribute('data-reassign') && node.value) action = { type: 'reassign', company: node.getAttribute('data-reassign'), ambassador: node.value };
+    if (node.hasAttribute('data-range')) action = { type: 'range', rangeKind: node.getAttribute('data-range') };
+    if (node.hasAttribute('data-ambassador-option')) action = { type: 'ambassador', ambassador: node.checked ? node.getAttribute('data-ambassador-option') : '', assign: true };
+    if (node.hasAttribute('data-event-option')) action = { type: 'eventType', eventType: node.checked ? node.getAttribute('data-event-option') : '', assign: true };
+    if (node.hasAttribute('data-role-option')) action = { type: 'role', role: node.checked ? node.getAttribute('data-role-option') : '', assign: true };
+    if (node.hasAttribute('data-company-option')) action = { type: 'company', company: node.checked ? node.getAttribute('data-company-option') : '', assign: true };
+    if (node.hasAttribute('data-folder-option')) action = { type: 'folderStatus', folderStatus: node.checked ? node.getAttribute('data-folder-option') : '', assign: true };
+    if (node.hasAttribute('data-actor')) action = { type: 'actor', actor: node.getAttribute('data-actor') };
     if (!action) return;
-    var result = model.apply(source, state, action);
-    state = result.state;
-    message = result.error;
-    paint();
+    setFilter(action);
   });
 })();

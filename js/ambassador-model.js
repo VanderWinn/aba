@@ -38,9 +38,9 @@
         { company: 'Riverlight Dental', ambassador: 'Avery Sample', claimedAt: '2026-09-14' }
       ],
       deliveries: [
-        { id: 'd1', company: 'Harbor & Co.', status: 'Assigned', ambassador: 'Casey Demo', completedOn: '', completedBy: '' },
-        { id: 'd2', company: 'Pine Street Books', status: 'Delivered', ambassador: 'Drew Fictitious', completedOn: '2026-11-02', completedBy: 'Drew Fictitious' },
-        { id: 'd3', company: 'Northwind Cafe', status: 'Not started', ambassador: '', completedOn: '', completedBy: '' }
+        { id: 'd1', company: 'Harbor & Co.', status: 'Assigned', assignedTo: 'Casey Demo', completedOn: '', completedBy: '' },
+        { id: 'd2', company: 'Pine Street Books', status: 'Delivered', assignedTo: 'Drew Fictitious', completedOn: '2026-11-02', completedBy: 'Drew Fictitious' },
+        { id: 'd3', company: 'Northwind Cafe', status: 'Not started', assignedTo: '', completedOn: '', completedBy: '' }
       ],
       audit: []
     };
@@ -56,7 +56,8 @@
       role: '',
       company: '',
       folderStatus: '',
-      actor: 'Avery Sample'
+      actor: 'Avery Sample',
+      openMenu: ''
     };
   }
 
@@ -108,23 +109,80 @@
     });
   }
 
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   function periodKey(date, group) {
     var iso = String(date || '');
     if (group === 'year') return iso.slice(0, 4);
     if (group === 'quarter') {
       var month = Number(iso.slice(5, 7));
-      return iso.slice(0, 4) + ' Q' + (Math.floor((month - 1) / 3) + 1);
+      return iso.slice(0, 4) + '-Q' + (Math.floor((month - 1) / 3) + 1);
     }
     return iso.slice(0, 7);
   }
 
+  function periodLabel(date, group, multiYear) {
+    var iso = String(date || '');
+    if (group === 'year') return iso.slice(0, 4);
+    if (group === 'quarter') {
+      var quarter = 'Q' + (Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1);
+      return multiYear ? quarter + ' ' + iso.slice(0, 4) : quarter;
+    }
+    var month = MONTHS[Number(iso.slice(5, 7)) - 1];
+    return multiYear ? month + ' ' + iso.slice(0, 4) : month;
+  }
+
   function shiftPeriods(source, state) {
+    var rows = signupsIn(source, state);
+    var years = {};
+    rows.forEach(function (row) { years[String(row.date).slice(0, 4)] = true; });
+    var multiYear = Object.keys(years).length > 1;
     var buckets = {};
-    signupsIn(source, state).forEach(function (row) {
+    rows.forEach(function (row) {
       var key = periodKey(row.date, state.group);
-      buckets[key] = (buckets[key] || 0) + 1;
+      if (!buckets[key]) buckets[key] = { name: periodLabel(row.date, state.group, multiYear), value: 0 };
+      buckets[key].value += 1;
     });
-    return Object.keys(buckets).sort().map(function (key) { return { name: key, value: buckets[key] }; });
+    return Object.keys(buckets).sort().map(function (key) { return buckets[key]; });
+  }
+
+  function shortDate(iso) {
+    return MONTHS[Number(String(iso).slice(5, 7)) - 1] + ' ' + Number(String(iso).slice(8, 10));
+  }
+
+  function clockRange(start, end) {
+    var startMer = ((String(start).match(/AM|PM/i) || [''])[0]).toUpperCase();
+    var endMer = ((String(end).match(/AM|PM/i) || [''])[0]).toUpperCase();
+    var startNum = String(start).replace(/\s*(AM|PM)\s*$/i, '').trim();
+    var endNum = String(end).replace(/\s*(AM|PM)\s*$/i, '').trim();
+    if (startMer && startMer === endMer) return startNum + '–' + endNum + ' ' + endMer;
+    return String(start) + '–' + String(end);
+  }
+
+  function formatUpcoming(row) {
+    var parts = String(row.date).split('-').map(Number);
+    var date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    return WEEKDAYS[date.getUTCDay()] + ' ' + MONTHS[parts[1] - 1] + ' ' + parts[2] + ' · ' + clockRange(row.start, row.end) + ' · ' + row.name + ' · ' + row.role;
+  }
+
+  function eventGroups(source, state) {
+    var groups = {};
+    var order = [];
+    signupsIn(source, state).forEach(function (row) {
+      var key = eventKey(row);
+      if (!groups[key]) {
+        groups[key] = { name: row.name, eventType: row.eventType, date: row.date, roles: [] };
+        order.push(key);
+      }
+      groups[key].roles.push(row.role);
+    });
+    return order.map(function (key) { return groups[key]; });
+  }
+
+  function ownerOf(source, company) {
+    var owner = (source.owners || []).filter(function (row) { return row.company === company; })[0];
+    return owner ? owner.ambassador : '';
   }
 
   function upcomingIn(source, state) {
@@ -143,12 +201,23 @@
     });
   }
 
+  function deliveryView(source, row) {
+    return {
+      company: row.company,
+      status: row.status,
+      ambassador: ownerOf(source, row.company),
+      assignedTo: row.assignedTo || '',
+      completedOn: row.completedOn || '',
+      completedBy: row.completedBy || ''
+    };
+  }
+
   function deliveriesIn(source, state) {
     var range = rangeFor(state, source.asOf);
-    return (source.deliveries || []).filter(function (row) {
+    return (source.deliveries || []).map(function (row) { return deliveryView(source, row); }).filter(function (row) {
       if (state.company && row.company !== state.company) return false;
       if (state.folderStatus && state.folderStatus !== 'Uncovered' && row.status !== state.folderStatus) return false;
-      if (state.ambassador && row.ambassador !== state.ambassador && row.completedBy !== state.ambassador) return false;
+      if (state.ambassador && row.ambassador !== state.ambassador) return false;
       if (row.status === 'Delivered' && row.completedOn && (row.completedOn < range.start || row.completedOn > range.end)) return false;
       return true;
     });
@@ -192,13 +261,18 @@
           return true;
         });
       }
-      return { title: kind === 'events' ? 'Events' : 'Shifts', columns: ['Ambassador', 'Event', 'Role', 'Date', 'Time'], rows: rows.map(function (row) {
-        return [row.name, row.eventType, row.role, row.date, row.start + '–' + row.end];
+      if (kind === 'events') {
+        return { title: 'Events', columns: ['Ambassador', 'Event', 'Roles', 'Date'], rows: eventGroups(source, state).map(function (row) {
+          return [row.name, row.eventType, row.roles.join(' + '), shortDate(row.date)];
+        }) };
+      }
+      return { title: 'Shifts', columns: ['Ambassador', 'Event', 'Role', 'Date', 'Time'], rows: rows.map(function (row) {
+        return [row.name, row.eventType, row.role, shortDate(row.date), clockRange(row.start, row.end)];
       }) };
     }
     if (kind === 'upcoming') {
-      return { title: 'Upcoming assignments', columns: ['Ambassador', 'Event', 'Role', 'Date', 'Time'], rows: upcomingIn(source, state).map(function (row) {
-        return [row.name, row.eventType, row.role, row.date, row.start + '–' + row.end];
+      return { title: 'Upcoming assignments', columns: ['Assignment'], rows: upcomingIn(source, state).map(function (row) {
+        return [formatUpcoming(row)];
       }) };
     }
     if (kind === 'uncovered' || kind === 'companies') {
@@ -214,8 +288,8 @@
         if (statusName) return row.status === statusName;
         return true;
       });
-      return { title: statusName || (kind === 'credited' ? 'Completed by name' : 'Folder deliveries'), columns: ['Company', 'Status', 'Ambassador', 'Completed'], rows: deliveries.map(function (row) {
-        return [row.company, row.status, row.completedBy || row.ambassador || '', row.completedOn || ''];
+      return { title: statusName || (kind === 'credited' ? 'Completed by name' : 'Folder deliveries'), columns: ['Company', 'Ambassador', 'Assigned to', 'Status', 'Completed on', 'Completed by'], rows: deliveries.map(function (row) {
+        return [row.company, row.ambassador || 'Uncovered', row.assignedTo || '', row.status, row.completedOn || '', row.completedBy || ''];
       }) };
     }
     return { title: 'Records', columns: [], rows: [] };
@@ -289,13 +363,13 @@
     if (!roleOk(source, actor, 'folderTeam')) return { ok: false, error: 'Only the folder delivery team can record a delivery.' };
     var row = (source.deliveries || []).filter(function (item) { return item.company === company; })[0];
     if (!row) {
-      row = { id: 'd' + ((source.deliveries || []).length + 1), company: company, status: 'Not started', ambassador: '', completedOn: '', completedBy: '' };
+      row = { id: 'd' + ((source.deliveries || []).length + 1), company: company, status: 'Not started', assignedTo: '', completedOn: '', completedBy: '' };
       source.deliveries.push(row);
     }
     row.status = 'Delivered';
     row.completedOn = completedOn || source.asOf;
     row.completedBy = actor;
-    if (!row.ambassador) row.ambassador = actor;
+    if (!row.assignedTo) row.assignedTo = actor;
     audit(source, actor, 'recordFolderDelivery', company, row.completedOn);
     return { ok: true };
   }
@@ -303,14 +377,29 @@
   function apply(source, state, action) {
     var next = Object.assign({}, state);
     action = action || {};
-    if (action.type === 'page') next.page = action.page;
-    if (action.type === 'range') next.rangeKind = action.rangeKind;
+    if (action.type === 'page') {
+      next.page = action.page;
+      next.openMenu = '';
+      if (action.page === 'overview') { next.company = ''; next.folderStatus = ''; }
+      if (action.page === 'companies') {
+        next.eventType = '';
+        next.role = '';
+        if (next.folderStatus && next.folderStatus !== 'Uncovered') next.folderStatus = '';
+      }
+      if (action.page === 'folders') {
+        next.eventType = '';
+        next.role = '';
+        if (next.folderStatus === 'Uncovered') next.folderStatus = '';
+      }
+    }
+    if (action.type === 'menu') next.openMenu = next.openMenu === action.menu ? '' : action.menu;
+    if (action.type === 'range') { next.rangeKind = action.rangeKind; next.openMenu = ''; }
     if (action.type === 'group') next.group = action.group;
-    if (action.type === 'ambassador') next.ambassador = next.ambassador === action.ambassador ? '' : (action.ambassador || '');
-    if (action.type === 'eventType') next.eventType = next.eventType === action.eventType ? '' : (action.eventType || '');
-    if (action.type === 'role') next.role = next.role === action.role ? '' : (action.role || '');
-    if (action.type === 'company') next.company = next.company === action.company ? '' : (action.company || '');
-    if (action.type === 'folderStatus') next.folderStatus = next.folderStatus === action.folderStatus ? '' : (action.folderStatus || '');
+    if (action.type === 'ambassador') next.ambassador = action.assign ? (action.ambassador || '') : (next.ambassador === action.ambassador ? '' : (action.ambassador || ''));
+    if (action.type === 'eventType') next.eventType = action.assign ? (action.eventType || '') : (next.eventType === action.eventType ? '' : (action.eventType || ''));
+    if (action.type === 'role') next.role = action.assign ? (action.role || '') : (next.role === action.role ? '' : (action.role || ''));
+    if (action.type === 'company') next.company = action.assign ? (action.company || '') : (next.company === action.company ? '' : (action.company || ''));
+    if (action.type === 'folderStatus') next.folderStatus = action.assign ? (action.folderStatus || '') : (next.folderStatus === action.folderStatus ? '' : (action.folderStatus || ''));
     if (action.type === 'actor') next.actor = action.actor || next.actor;
     if (action.type === 'clear') return { state: defaultState(), error: '' };
     var error = '';
@@ -338,6 +427,10 @@
     signupsIn: signupsIn,
     upcomingIn: upcomingIn,
     shiftPeriods: shiftPeriods,
+    formatUpcoming: formatUpcoming,
+    eventGroups: eventGroups,
+    ownerOf: ownerOf,
+    shortDate: shortDate,
     ownersIn: ownersIn,
     deliveriesIn: deliveriesIn,
     apply: apply,
