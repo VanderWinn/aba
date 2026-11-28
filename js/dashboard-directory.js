@@ -379,6 +379,62 @@
       }
     });
 
+    var quietCompany = COMPANIES[COMPANIES.length - 1];
+    var noshowKeep = {};
+    noshowKeep[foldLabel(COMPANIES[2])] = true;
+    noshowKeep[foldLabel(COMPANIES[3])] = true;
+    attendance.forEach(function (row) {
+      if (foldLabel(row.company) === foldLabel(quietCompany)) row.company = COMPANIES[1];
+      if (row.eventType === 'Happy Hour' && foldLabel(row.company) === foldLabel(COMPANIES[0])) row.company = COMPANIES[1];
+      if (rowIsNoShow(row) && !noshowKeep[foldLabel(row.company)]) row.company = COMPANIES[2];
+    });
+    var eventOrder = [];
+    var eventHost = {};
+    attendance.forEach(function (row) {
+      if (!eventHost[row.eventId]) {
+        eventHost[row.eventId] = { event: row.event, eventType: row.eventType, date: row.date };
+        eventOrder.push(row.eventId);
+      }
+    });
+    var fyEvents = eventOrder.filter(function (id) {
+      var date = eventHost[id].date;
+      return date >= '2026-07-01' && date <= '2026-11-24';
+    });
+    var keepNs = fyEvents.filter(function (id, index) { return index % 2 === 0; });
+    var dropNs = fyEvents.filter(function (id, index) { return index % 2 === 1; });
+    if (keepNs.length && dropNs.length) {
+      var nsTarget = eventHost[keepNs[0]];
+      attendance.forEach(function (row) {
+        if (!rowIsNoShow(row) || dropNs.indexOf(row.eventId) === -1) return;
+        row.eventId = keepNs[0];
+        row.event = nsTarget.event;
+        row.eventType = nsTarget.eventType;
+        row.date = nsTarget.date;
+      });
+    }
+    var guestOnly = '';
+    var memberHostId = '';
+    fyEvents.forEach(function (id) {
+      var hasGuest = attendance.some(function (row) {
+        return row.eventId === id && row.audience === 'Guest' && !rowIsNoShow(row);
+      });
+      var hasMember = attendance.some(function (row) {
+        return row.eventId === id && row.audience === 'Member' && !rowIsNoShow(row);
+      });
+      if (!guestOnly && hasGuest && hasMember) guestOnly = id;
+      else if (guestOnly && !memberHostId && hasMember) memberHostId = id;
+    });
+    if (guestOnly && memberHostId) {
+      var memberHost = eventHost[memberHostId];
+      attendance.forEach(function (row) {
+        if (row.eventId !== guestOnly || row.audience !== 'Member' || rowIsNoShow(row)) return;
+        row.eventId = memberHostId;
+        row.event = memberHost.event;
+        row.eventType = memberHost.eventType;
+        row.date = memberHost.date;
+      });
+    }
+
     var directoryPeople = [];
     var seen = {};
     function remember(person) {
@@ -608,20 +664,32 @@
     };
   }
 
-  function census(directory, view) {
+  function census(directory, view, skipInvolved) {
     var asOf = (view && (view.asOf || view.today)) || '2026-11-24';
     var period = focusWindow(view);
     var businessKey = ((view && view.selectedBusinessTypes) || []).join(',');
-    var key = asOf + '|' + (period.chosen ? period.start + ':' + period.end : '') + '|' + businessKey;
-    if (view && view._censusKey === key && view._census) return view._census;
+    var involvedKey = skipInvolved ? 'skip' : [
+      view && view.audience || '',
+      ((view && view.eventTypes) || []).join('|'),
+      ((view && view.companies) || []).join('|'),
+      ((view && view.people) || []).join('|'),
+      view && view.involvement || '',
+      view && view.bucket || ''
+    ].join('~');
+    var key = asOf + '|' + (period.chosen ? period.start + ':' + period.end : '') + '|' + businessKey + '|' + involvedKey;
+    var cache = skipInvolved ? '_censusSkip' : '_census';
+    var cacheKey = skipInvolved ? '_censusSkipKey' : '_censusKey';
+    if (view && view[cacheKey] === key && view[cache]) return view[cache];
     var sourceRows = memberUniverse(directory, view).filter(function (row) {
       if (row.audience && row.audience !== 'Member') return false;
-      return matchesBusinessType(row, (view && view.selectedBusinessTypes) || []);
+      if (!matchesBusinessType(row, (view && view.selectedBusinessTypes) || [])) return false;
+      if (!skipInvolved && !involvedOk(directory, row, view)) return false;
+      return true;
     });
     var built = buildCensus(directory || { membership: [], attendance: [] }, asOf, period, sourceRows);
     if (view) {
-      view._census = built;
-      view._censusKey = key;
+      view[cache] = built;
+      view[cacheKey] = key;
     }
     return built;
   }
@@ -660,7 +728,7 @@
     var key = business.join('|') + '~' + flow + '~' + (view.renewalTenure || '') + '~' + (view.renewalBand || '') + '~' + (view.bucket || '');
     if (view && view._companyKey === key) return view._companySet;
     var set = {};
-    census(directory, view).rows.forEach(function (profile) {
+    census(directory, view, true).rows.forEach(function (profile) {
       if (!baseProfile(profile, view)) return;
       if (renewal && !inRenewalSlice(profile, view)) return;
       if (!flow && !renewal && !profile.current) return;
@@ -677,6 +745,76 @@
     var set = companySet(directory, view);
     if (!set) return true;
     return !!set[foldLabel(row && row.company)];
+  }
+
+  function eventSideOn(view) {
+    if (!view) return false;
+    if (view.audience === 'Member' || view.audience === 'Guest' || view.audience === 'No-show') return true;
+    if ((view.eventTypes || []).length || (view.companies || []).length || (view.people || []).length) return true;
+    return view.involvement === 'visits' || view.involvement === 'noshows';
+  }
+
+  function measureSpan(view) {
+    var focus = focusWindow(view);
+    if (focus.chosen) return { start: focus.start, end: focus.end };
+    var range = view && (view.measure || view.range);
+    if (range && range.start && range.end) return { start: range.start, end: range.end };
+    return { start: '1970-01-01', end: '9999-12-31' };
+  }
+
+  function involvedCompanySet(directory, view) {
+    if (!eventSideOn(view)) return null;
+    var span = measureSpan(view);
+    var key = [
+      view.audience || '',
+      (view.eventTypes || []).join('|'),
+      (view.companies || []).join('|'),
+      (view.people || []).join('|'),
+      view.involvement || '',
+      span.start,
+      span.end,
+      (view.selectedBusinessTypes || []).join('|'),
+      view.flow || '',
+      view.renewalTenure || '',
+      view.renewalBand || '',
+      view.bucket || ''
+    ].join('~');
+    if (view._involvedKey === key) return view._involvedSet;
+    var noshow = view.involvement === 'noshows' || (view.involvement !== 'visits' && view.audience === 'No-show');
+    var set = {};
+    function add(company) {
+      var folded = foldLabel(company);
+      if (folded) set[folded] = true;
+    }
+    if (noshow) {
+      var summary = noShowSummary(directory, view, span.start, span.end);
+      ((summary && summary.rows) || []).forEach(function (row) { add(row.company); });
+    } else {
+      var audience = view.audience === 'No-show' ? '' : (view.audience || '');
+      attendanceRows(directory, span.start, span.end, view.eventTypes || [], audience, view).forEach(function (row) {
+        add(row.company);
+      });
+    }
+    (view.companies || []).forEach(add);
+    view._involvedKey = key;
+    view._involvedSet = set;
+    return set;
+  }
+
+  function involvedOk(directory, row, view) {
+    var set = involvedCompanySet(directory, view);
+    if (!set) return true;
+    return !!set[foldLabel(row && row.company)];
+  }
+
+  function eventAudience(audience, view) {
+    if (view && view.involvement === 'noshows') return 'No-show';
+    if (view && view.involvement === 'visits') {
+      if (audience === 'Member' || audience === 'Guest') return audience;
+      if (view.audience === 'Member' || view.audience === 'Guest') return view.audience;
+      return '';
+    }
+    return audience || '';
   }
 
   function attendanceRows(directory, start, end, eventTypes, audience, view) {
@@ -699,13 +837,23 @@
     var rows = [];
     var signups = 0;
     var audience = view && view.audience || '';
+    var matched = [];
     (directory.attendance || []).forEach(function (row) {
       if (!row.date || row.date < start || row.date > end) return;
       if (view && !typeOk(row.eventType, view.eventTypes || [])) return;
       if (view && !identityOk(row, view)) return;
       if (view && !companyAllowed(row, directory, view)) return;
       if ((audience === 'Member' || audience === 'Guest') && row.audience !== audience) return;
+      if (view && view.involvement === 'visits' && !countedVisit(row)) return;
       if (!rowIsSignUp(row)) return;
+      matched.push(row);
+    });
+    if (audience === 'No-show' || (view && view.involvement === 'noshows')) {
+      var held = {};
+      matched.forEach(function (row) { if (rowIsNoShow(row)) held[row.eventId] = true; });
+      matched = matched.filter(function (row) { return held[row.eventId]; });
+    }
+    matched.forEach(function (row) {
       signups += 1;
       if (rowIsNoShow(row)) rows.push(row);
     });
@@ -787,18 +935,19 @@
     keeps: identityOk,
     countEvents: function (start, end, eventTypes, audience, view) {
       var ids = {};
-      attendanceRows(view.directory, start, end, eventTypes, audience, view).forEach(function (row) {
+      attendanceRows(view.directory, start, end, eventTypes, eventAudience(audience, view), view).forEach(function (row) {
         ids[row.eventId] = true;
       });
       return Object.keys(ids).length;
     },
     sumAttendance: function (start, end, eventTypes, audience, view) {
-      if (audience === 'No-show') return 0;
-      return attendanceRows(view.directory, start, end, eventTypes, audience, view).length;
+      var effective = eventAudience(audience, view);
+      if (effective === 'No-show') return 0;
+      return attendanceRows(view.directory, start, end, eventTypes, effective, view).length;
     },
     events: function (start, end, eventTypes, audience, view) {
       var map = {};
-      attendanceRows(view.directory, start, end, eventTypes, audience, view).forEach(function (row) {
+      attendanceRows(view.directory, start, end, eventTypes, eventAudience(audience, view), view).forEach(function (row) {
         if (!map[row.eventId]) {
           map[row.eventId] = { id: row.eventId, date: row.date, type: row.eventType, name: row.event };
         }
@@ -938,6 +1087,7 @@
     memberUniverse(directory, view).forEach(function (row) {
       if (row.audience && row.audience !== 'Member') return;
       if (!matchesBusinessType(row, selected)) return;
+      if (!involvedOk(directory, row, view)) return;
       if (renewalRows && !renewalRows[rowKey(row)]) return;
       var joined = row.joined || '';
       var lost = row.lost || '';
@@ -972,7 +1122,8 @@
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     if (kind === 'attendance' || kind === 'distribution') {
-      var found = audience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
+      var visitAudience = eventAudience(audience, view);
+      var found = visitAudience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, visitAudience, view);
       var rows = directory.live ? found : withContacts(found);
       var visitTitle = 'Event visits';
       if (eventTypes.length === 1) visitTitle = eventTypes[0] + ' visits';
@@ -1009,7 +1160,7 @@
     }
     if (kind === 'events') {
       var map = {};
-      attendanceRows(directory, range.start, range.end, eventTypes, audience, view).forEach(function (row) {
+      attendanceRows(directory, range.start, range.end, eventTypes, eventAudience(audience, view), view).forEach(function (row) {
         if (!map[row.eventId]) {
           map[row.eventId] = { event: row.event, type: row.eventType, date: row.date, attendance: 0 };
         }
@@ -1273,6 +1424,7 @@
     drill: drill,
     memberRecords: memberRecords,
     renewalStats: renewalStats,
+    involvedCompanySet: involvedCompanySet,
     noShowSummary: noShowSummary,
     rowIsNoShow: rowIsNoShow,
     rowIsSignUp: rowIsSignUp,

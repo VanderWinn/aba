@@ -1109,13 +1109,14 @@ select:focus-visible {
 .card.kpi-net .kpi-num { color: #1d6b52; }
 .card.kpi-net .tone-down { color: #D01F25; }
 .kpi-row .card.kpi-events { border-top-color: #3F768B; background: #f4f8fa; }
-.kpi-row .card.kpi-events .kpi-num { color: #2C5563; }
+.card.kpi-events .kpi-num { color: #2C5563; }
 .card.kpi-visits { border-top-color: #3D5A80; background: #f4f7fb; }
 .card.kpi-visits .kpi-num { color: #2C4464; }
 .card.kpi-noshow { border-top-color: #6B4C7A; background: #f8f4fa; }
 .card.kpi-noshow .kpi-num { color: #5A3D68; }
 .card.kpi-renewal { border-top-color: #8A5A12; background: #fbf6ee; }
 .card.kpi-renewal .kpi-num { color: #6d470e; }
+.card.kpi-renewal .kpi-num.tone-down { color: var(--clay); }
 .card-renewal .pv.is-risk { color: #7A5410; }
 .card-renewal .pr > div { flex: 1 0 auto; min-width: max-content; }
 .card-renewal .pr .pl { white-space: nowrap; }

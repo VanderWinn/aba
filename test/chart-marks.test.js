@@ -160,8 +160,8 @@ test('the active-member line reconciles with the net card', () => {
   });
   const home = dash.compute(source, null, built);
   const lunch = dash.compute(source, Object.assign({}, dash.defaultState(source), { eventTypes: ['Happy Hour'] }), built);
-  assert.equal(lunch.members.value, home.members.value);
-  assert.equal(lunch.net.value, home.net.value);
+  assert.ok(lunch.members.value > 0 && lunch.members.value < home.members.value);
+  assert.equal(lunch.members.value - lunch.openingActive, lunch.net.value);
   assert.ok(checks >= 60);
   fs.writeFileSync('/tmp/line-identity.json', JSON.stringify({ checks: checks }, null, 2));
 });
