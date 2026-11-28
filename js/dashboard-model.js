@@ -1262,9 +1262,10 @@
       });
     }
 
+    var countSpan = (view.focus && /^\d{4}-\d{2}-\d{2}$/.test(view.focus.start)) ? view.focus : view.range;
     var counted = directory && directory.attendance && directory.narrow
-      ? directory.narrow.events(view.range.start, view.range.end, [], pieAudience, view)
-      : eventsIn(data, view.range.start, view.range.end, '', pieAudience, attendance);
+      ? directory.narrow.events(countSpan.start, countSpan.end, eventTypes, pieAudience, view)
+      : eventsIn(data, countSpan.start, countSpan.end, eventTypes, pieAudience, attendance);
     var typeCounts = { all: counted.length };
     TYPES.forEach(function (type) { typeCounts[type] = 0; });
     counted.forEach(function (event) {
@@ -1274,11 +1275,11 @@
     var pieMembers;
     var pieGuests;
     if (directory && directory.attendance && directory.narrow) {
-      var pieCounts = directory.narrow.pie(view.range.start, view.range.end, eventTypes, view);
+      var pieCounts = directory.narrow.pie(countSpan.start, countSpan.end, eventTypes, view);
       pieMembers = pieCounts.Member;
       pieGuests = pieCounts.Guest;
     } else {
-      var pieEvents = eventsIn(data, view.range.start, view.range.end, eventTypes, '', attendance);
+      var pieEvents = eventsIn(data, countSpan.start, countSpan.end, eventTypes, '', attendance);
       pieMembers = attendanceSum(pieEvents, attendance, 'Member');
       pieGuests = attendanceSum(pieEvents, attendance, 'Guest');
     }
@@ -1355,10 +1356,15 @@
     netMetric.tag = periodTag;
     eventsMetric.tag = periodTag;
     attendanceMetric.tag = periodTag;
-    if (focused && directory && directory.attendance && directory.narrow) {
-      var focusedPie = directory.narrow.pie(measure.start, measure.end, eventTypes, view);
-      pieMembers = focusedPie.Member || 0;
-      pieGuests = focusedPie.Guest || 0;
+    if (directory && directory.attendance && directory.narrow) {
+      var memberVisits = (!pieAudience || pieAudience === 'Member') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Member', view) : 0;
+      var guestVisits = (!pieAudience || pieAudience === 'Guest') ? directory.narrow.sumAttendance(countSpan.start, countSpan.end, eventTypes, 'Guest', view) : 0;
+      if (pieAudience === 'No-show') {
+        memberVisits = 0;
+        guestVisits = 0;
+      }
+      pieMembers = memberVisits;
+      pieGuests = guestVisits;
       pieTotal = pieMembers + pieGuests;
       memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
     }
@@ -1478,7 +1484,24 @@
       gains: gainSeries,
       openingActive: openingActive,
       gainLegend: gainLegend,
-      businessTypes: data.businessTypes || [],
+      businessTypes: (function () {
+        if (!(directory && directory.membership && directory.membership.length && root.ABADirectory && root.ABADirectory.memberRecords)) {
+          return data.businessTypes || [];
+        }
+        var lines = root.ABADirectory.memberRecords(directory, view, { start: measure.start, end: measure.end, useFlow: true }, 'active');
+        var counts = {};
+        lines.forEach(function (row) {
+          var parts = String(row.category || '').split(' | ').filter(Boolean);
+          if (!parts.length || (parts.length === 1 && parts[0] === 'Other / not listed')) parts = ['Other / not listed'];
+          var seen = {};
+          parts.forEach(function (name) {
+            if (seen[name]) return;
+            seen[name] = true;
+            counts[name] = (counts[name] || 0) + 1;
+          });
+        });
+        return Object.keys(counts).map(function (label) { return { label: label, count: counts[label] }; });
+      })(),
       events: eventsMetric,
       eventSeries: eventSeries,
       eventLastYear: eventLastYear,
@@ -1506,15 +1529,7 @@
       pie: {
         members: pieMembers,
         guests: pieGuests,
-        noShows: (function () {
-          if (!(directory && root.ABADirectory && root.ABADirectory.noShowSummary)) return 0;
-          var open = {};
-          var key;
-          for (key in view) if (Object.prototype.hasOwnProperty.call(view, key)) open[key] = view[key];
-          open.audience = '';
-          var summary = root.ABADirectory.noShowSummary(directory, open, view.range.start, view.range.end);
-          return summary ? summary.noShows : 0;
-        })(),
+        noShows: noShowsMetric.noShows,
         memberPct: memberPct,
         guestPct: pieTotal ? 100 - memberPct : 0
       }

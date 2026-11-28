@@ -272,6 +272,7 @@
       var person = {
         name: personName(seq),
         company: company,
+        email: emailOf(personName(seq)),
         audience: audience,
         eventType: eventType,
         joined: joined,
@@ -334,6 +335,7 @@
         attendance.push({
           name: member.name,
           company: member.company,
+          email: emailOf(member.name),
           audience: 'Member',
           event: event.type,
           eventType: event.type,
@@ -387,6 +389,27 @@
     people.forEach(remember);
     guests.forEach(remember);
     directoryPeople.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    var activeMembers = people.filter(function (person) {
+      return person.audience === 'Member' && !person.lost;
+    });
+    var typePlan = [
+      ['Restaurants', 62], ['Contractors', 54], ['Real Estate Services', 48],
+      ['Medical, Dental & Nursing Care', 44], ['Financial & Investment Services', 38],
+      ['Insurance', 32], ['Marketing', 28], ['Fitness', 24], ['Legal Services', 21],
+      ['Education', 18], ['Automotive', 16], ['Other / not listed', 27]
+    ];
+    var newer = activeMembers.filter(function (person) { return person.joined >= '2026-07-01'; });
+    var older = activeMembers.filter(function (person) { return person.joined < '2026-07-01'; });
+    typePlan.forEach(function (plan) {
+      var label = plan[0];
+      var quota = plan[1];
+      var fresh = Math.min(newer.length, Math.max(1, Math.round(quota * newer.length / Math.max(1, activeMembers.length))));
+      if (label === 'Contractors') fresh = Math.min(newer.length, 11);
+      var picked = newer.splice(0, Math.min(fresh, quota)).concat(older.splice(0, Math.max(0, quota - fresh)));
+      picked.forEach(function (person) {
+        person.categories = label === 'Other / not listed' ? [] : [label];
+      });
+    });
 
     return {
       companies: COMPANIES.slice(),
@@ -568,7 +591,8 @@
         inCycle: inCycle,
         lapsed: lost === renewalDate,
         tenure: tenureKey(joined, cohortYear, newerStart),
-        band: bandFor(cycleVisits),
+        band: bandFor(recentVisits),
+        cycleBand: bandFor(cycleVisits),
         zero: current && !recentVisits
       });
     });
@@ -614,7 +638,7 @@
     if (!tenure && !band) return true;
     if (tenure && !tenureMatch(profile, tenure)) return false;
     if (tenure && !band && !profile.zero) return false;
-    if (band && (profile.band !== band || !profile.inCycle)) return false;
+    if (band && (profile.band !== band || !profile.current)) return false;
     return true;
   }
 
@@ -712,9 +736,9 @@
           tenure[profile.tenure] += 1;
         }
       }
-      if (profile.inCycle && bands[profile.band]) {
+      if (profile.current && bands[profile.band]) {
         bands[profile.band].members += 1;
-        if (profile.lapsed) bands[profile.band].lapsed += 1;
+        if (profile.lapsed && profile.cycleBand === profile.band) bands[profile.band].lapsed += 1;
       }
     });
     var tenureName = view && view.renewalTenure || '';
@@ -722,17 +746,13 @@
     var headline = zero;
     var denom = current.length;
     if (bandName && tenureName) {
-      headline = profiles.filter(function (profile) {
-        return profile.inCycle && profile.band === bandName && tenureMatch(profile, tenureName);
+      headline = current.filter(function (profile) {
+        return profile.band === bandName && tenureMatch(profile, tenureName);
       });
-      denom = profiles.filter(function (profile) {
-        return profile.inCycle && tenureMatch(profile, tenureName);
-      }).length;
+      denom = current.filter(function (profile) { return tenureMatch(profile, tenureName); }).length;
     } else if (bandName) {
-      headline = profiles.filter(function (profile) {
-        return profile.inCycle && profile.band === bandName;
-      });
-      denom = profiles.filter(function (profile) { return profile.inCycle; }).length;
+      headline = current.filter(function (profile) { return profile.band === bandName; });
+      denom = current.length;
     } else if (tenureName) {
       headline = current.filter(function (profile) {
         return !profile.recentVisits && tenureMatch(profile, tenureName);
@@ -873,10 +893,18 @@
   }
 
   function memberUniverse(directory, view) {
-    var selected = (view && view.selectedBusinessTypes) || [];
-    if (selected.length && directory.businesses && directory.businesses.length) return directory.businesses;
     if (directory.membership && directory.membership.length) return directory.membership;
     return directory.businesses || [];
+  }
+
+  var rowSerial = 0;
+  function rowKey(row) {
+    if (!row) return '';
+    if (!row._rowKey) {
+      rowSerial += 1;
+      row._rowKey = 'r' + rowSerial;
+    }
+    return row._rowKey;
   }
 
   function memberLine(row, status, date) {
@@ -886,7 +914,7 @@
       company: row.company || '',
       status: status,
       date: date || '',
-      category: cats.length ? cats.join(', ') : 'Other / not listed'
+      category: cats.length ? cats.join(' | ') : 'Other / not listed'
     };
   }
 
@@ -907,16 +935,16 @@
     if (view && (view.renewalTenure || view.renewalBand)) {
       renewalRows = {};
       sliceProfiles(directory, view).forEach(function (profile) {
-        if (view.renewalBand && !(profile.inCycle && profile.band === view.renewalBand)) return;
+        if (view.renewalBand && !(profile.current && profile.band === view.renewalBand)) return;
         if (!view.renewalBand && !(profile.current && profile.zero)) return;
-        renewalRows[profile.row] = true;
+        renewalRows[rowKey(profile.row)] = true;
       });
     }
     var rows = [];
     memberUniverse(directory, view).forEach(function (row) {
       if (row.audience && row.audience !== 'Member') return;
       if (!matchesBusinessType(row, selected)) return;
-      if (renewalRows && !renewalRows[row]) return;
+      if (renewalRows && !renewalRows[rowKey(row)]) return;
       var joined = row.joined || '';
       var lost = row.lost || '';
       if (useFlow && view.flow === 'lost' && mode === 'joined') return;

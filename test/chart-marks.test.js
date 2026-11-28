@@ -87,7 +87,8 @@ test('unfiltered renewal matches the live feed formula', () => {
   assert.equal(risk.byTenure.newer + risk.byTenure.longer + risk.byTenure.unknown + risk.byTenure.thisYear, risk.zeroAttendance);
   assert.equal(risk.newerLabel, 'Joined 2022–2025');
   assert.equal(risk.longerLabel, 'Joined 2021 or earlier');
-  assert.equal(risk.lapseByBand[0].lapsed, 1);
+  assert.equal(risk.lapseByBand.reduce(function (sum, band) { return sum + band.members; }, 0), risk.cohort);
+  assert.equal(risk.lapseByBand[0].members, risk.zeroAttendance);
   assert.equal(directoryApi.drill(directory, 'renewal', view).rows.length, risk.zeroAttendance);
   assert.ok(risk.zeroAttendance <= risk.cohort);
   assert.ok(risk.pct >= 0 && risk.pct <= 100);
@@ -258,6 +259,18 @@ test('every card list matches after each period mark', () => {
       function rows(kind) { return directoryApi.drill(built, kind, view).rows.length; }
       assert.equal(rows('members'), view.members.value);
       assert.equal(rows('newMembers'), view.newMembers.value);
+      var typeSum = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'].reduce(function (sum, name) {
+        return sum + ((view.eventCounts && view.eventCounts[name]) || 0);
+      }, 0);
+      assert.equal(typeSum, view.events.value);
+      if (view.audience !== 'No-show') assert.equal((view.pie.members || 0) + (view.pie.guests || 0), view.attendance.value);
+      assert.equal(view.pie.noShows, view.noShows.noShows);
+      var bizSum = (view.businessTypes || []).reduce(function (sum, row) { return sum + (row.count || 0); }, 0);
+      assert.equal(bizSum, view.members.value);
+      if (!mark.flow && view.renewalRisk) {
+        var bandSum = view.renewalRisk.lapseByBand.reduce(function (sum, band) { return sum + band.members; }, 0);
+        assert.equal(bandSum, view.renewalRisk.cohort);
+      }
       assert.equal(rows('events'), view.events.value);
       assert.equal(rows('attendance'), view.attendance.value);
       assert.equal(rows('noshows'), view.noShows.noShows);
@@ -273,6 +286,16 @@ test('every card list matches after each period mark', () => {
     });
   });
   assert.ok(checks > 20);
+  const aug = dash.compute(source, Object.assign({}, dash.defaultState(source), { bucket: '2026-08-01:2026-08-31' }), built);
+  const zeroBand = aug.renewalRisk.lapseByBand[0];
+  assert.ok(zeroBand.members > 0);
+  assert.equal(aug.renewalRisk.lapseByBand.reduce(function (sum, band) { return sum + band.members; }, 0), aug.renewalRisk.cohort);
+  const chosen = dash.compute(source, Object.assign({}, dash.defaultState(source), {
+    bucket: '2026-08-01:2026-08-31',
+    renewalBand: '0'
+  }), built);
+  assert.equal(chosen.members.value, zeroBand.members);
+  assert.equal(directoryApi.drill(built, 'members', chosen).rows.length, zeroBand.members);
   const person = (built.attendance || []).filter(function (row) {
     return row.date >= '2026-07-01' && row.status === 'attended';
   })[0].name;
