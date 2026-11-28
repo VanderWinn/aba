@@ -3,11 +3,11 @@
   'use strict';
 
   var AS_OF = '2026-11-28';
-  // The shared portal password cannot tell these roles apart.
-  // AMBASSADOR_ROLE_LISTS is the working default for the preview.
+  // Example preview only. Live role names stay on the server.
+  // The folder team list is empty, so only the example committee lead can record a completion.
   var AMBASSADOR_ROLE_LISTS = {
     committeeLeads: ['Avery Sample'],
-    folderTeam: ['Casey Demo', 'Drew Fictitious']
+    folderTeam: []
   };
 
   function exampleSource() {
@@ -360,7 +360,9 @@
   }
 
   function recordDelivery(source, company, actor, completedOn) {
-    if (!roleOk(source, actor, 'folderTeam')) return { ok: false, error: 'Only the folder delivery team can record a delivery.' };
+    var team = (source.roles && source.roles.folderTeam) || [];
+    var allowed = team.length ? roleOk(source, actor, 'folderTeam') : roleOk(source, actor, 'committeeLeads');
+    if (!allowed) return { ok: false, error: 'Only the committee lead can record a folder delivery until the folder team is named.' };
     var row = (source.deliveries || []).filter(function (item) { return item.company === company; })[0];
     if (!row) {
       row = { id: 'd' + ((source.deliveries || []).length + 1), company: company, status: 'Not started', assignedTo: '', completedOn: '', completedBy: '' };

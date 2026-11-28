@@ -58,6 +58,9 @@ test('two shifts at one event count as one event and two shifts', () => {
   const companies = viewApi.render(source, Object.assign(api.defaultState(), { page: 'companies' }), api.metrics(source, api.defaultState()), '');
   assert.equal(companies.includes('Event type'), false);
   assert.equal(companies.includes('>Role<'), false);
+  const noteAt = folders.indexOf('The folder delivery team is not named yet');
+  assert.ok(noteAt > folders.lastIndexOf('class="tip"', noteAt));
+  assert.equal(folders.slice(0, noteAt).lastIndexOf('<p') < folders.lastIndexOf('class="tip"', noteAt), true);
 });
 
 test('two ambassadors cannot claim the same company, including at the same time', async () => {
@@ -77,13 +80,15 @@ test('two ambassadors cannot claim the same company, including at the same time'
 test('folder completion does not change ownership', () => {
   const source = fresh();
   const before = source.owners.map(function (row) { return row.company + ':' + row.ambassador; }).join('|');
-  const recorded = api.recordDelivery(source, 'Northwind Cafe', 'Casey Demo', '2026-11-20');
+  const recorded = api.recordDelivery(source, 'Northwind Cafe', 'Avery Sample', '2026-11-20');
   assert.equal(recorded.ok, true);
   const after = source.owners.map(function (row) { return row.company + ':' + row.ambassador; }).join('|');
   assert.equal(after, before);
   const row = source.deliveries.filter(function (item) { return item.company === 'Northwind Cafe'; })[0];
   assert.equal(row.status, 'Delivered');
-  assert.equal(row.completedBy, 'Casey Demo');
+  assert.equal(row.completedBy, 'Avery Sample');
+  const unnamed = api.recordDelivery(source, 'Elm Goods', 'Casey Demo', '2026-11-21');
+  assert.equal(unnamed.ok, false);
   const outsider = api.recordDelivery(source, 'Elm Goods', 'Blake Placeholder', '2026-11-21');
   assert.equal(outsider.ok, false);
   const lead = api.reassign(source, 'Harbor & Co.', 'Avery Sample', 'Blake Placeholder');
@@ -94,7 +99,7 @@ test('folder completion does not change ownership', () => {
   const shown = api.deliveriesIn(source, api.defaultState()).filter(function (row) { return row.company === 'Harbor & Co.'; })[0];
   assert.equal(shown.ambassador, 'Avery Sample');
   assert.equal(shown.assignedTo, 'Casey Demo');
-  assert.equal(source.deliveries.filter(function (row) { return row.company === 'Northwind Cafe'; })[0].assignedTo, 'Casey Demo');
+  assert.equal(source.deliveries.filter(function (row) { return row.company === 'Northwind Cafe'; })[0].assignedTo, 'Avery Sample');
 });
 
 test('the folder ambassador is the current owner after a claim and a reassign', () => {

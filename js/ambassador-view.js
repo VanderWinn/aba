@@ -232,19 +232,21 @@
 
   function foldersPage(source, state, numbers) {
     var rows = root.ABAAmbassador.deliveriesIn(source, state);
+    var team = (source.roles && source.roles.folderTeam) || [];
+    var canRecord = team.length ? team.indexOf(state.actor) !== -1 : ((source.roles && source.roles.committeeLeads) || []).indexOf(state.actor) !== -1;
     return '<div class="kpi-row">' +
       kpi('Not started', numbers.folders['Not started'], 'not-started', 'Team total. Not tied to who owns the company.', pct(numbers.folders['Not started'], numbers.teamTotal) + ' of team', 'kpi-noshow') +
       kpi('Assigned', numbers.folders.Assigned, 'assigned', 'Assigned to a folder-team member. The ambassador stays the company owner.', pct(numbers.folders.Assigned, numbers.teamTotal) + ' of team', 'kpi-visits') +
       kpi('Delivered', numbers.folders.Delivered, 'delivered', 'Completion is recorded by the folder team and does not change the owner.', pct(numbers.folders.Delivered, numbers.teamTotal) + ' of team', 'kpi-net') +
       kpi('Named credit', numbers.credited, 'credited', 'Counted only when Completed by names the person.', (numbers.folders.Delivered ? pct(numbers.credited, numbers.folders.Delivered) + ' of delivered' : ''), 'kpi-events') +
-      '</div>' + card('Folder deliveries', 'Ambassador is the current company owner. Credit goes to Completed by.',
+      '</div>' + card('Folder deliveries', 'Ambassador is the current company owner. Credit goes to Completed by. The folder delivery team is not named yet, so only the committee lead can record a completion until names are added.',
       '<table class="drill-table"><thead><tr><th>Company</th><th>Ambassador</th><th>Assigned to</th><th>Status</th><th>Completed on</th><th>Completed by</th><th></th></tr></thead><tbody>' +
       rows.map(function (row) {
         return '<tr><td><button type="button" class="detail-link" data-company-bar="' + esc(row.company) + '">' + esc(row.company) + '</button></td><td>' +
           (row.ambassador ? '<button type="button" class="detail-link" data-ambassador-bar="' + esc(row.ambassador) + '">' + esc(row.ambassador) + '</button>' : 'Uncovered') +
           '</td><td>' + esc(row.assignedTo || '') + '</td><td><button type="button" class="detail-link" data-folder-bar="' + esc(row.status) + '">' + esc(row.status) + '</button></td><td>' +
           esc(row.completedOn || '') + '</td><td>' + esc(row.completedBy || '') + '</td><td>' +
-          (row.status === 'Delivered' ? '' : '<button type="button" data-deliver="' + esc(row.company) + '">Mark delivered</button>') +
+          (row.status === 'Delivered' || !canRecord ? '' : '<button type="button" data-deliver="' + esc(row.company) + '">Mark delivered</button>') +
           '</td></tr>';
       }).join('') + '</tbody></table><p class="card-foot"><button type="button" class="detail-link" data-drill="folders">View records</button></p>', '');
   }
