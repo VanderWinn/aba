@@ -1,0 +1,27 @@
+#amb { display: flex; flex-direction: column; min-height: 100vh; --section-gap: 8px; }
+#amb .shell { padding: 8px 12px 10px; gap: 8px; }
+#amb .controls { align-items: center; }
+#amb .controls .filter-chips { margin-left: auto; }
+#amb .clear-filters { margin-left: 8px; }
+#amb .controls .filter-chips + .clear-filters { margin-left: 8px; }
+#amb .kpi-row.cols-3, #amb .main.cols-3 .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#amb .main.cols-2 .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#amb .card { padding: 8px 10px 6px; }
+#amb .card-kpi .bodycol { gap: 2px; }
+#amb .card-foot { padding-top: 2px; text-align: center; }
+#amb .side { width: 210px; padding: 8px 10px; }
+#amb .rail-block { margin-top: 8px; }
+#amb .rail-block:first-child { margin-top: 0; }
+#amb .check { padding: 1px 0; }
+#amb .chart-grid { grid-template-columns: 1fr 1fr; }
+#amb .chart-slot { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; }
+#amb .kpi-num { background: transparent; border: 0; box-shadow: none; padding: 0; }
+#amb .filter-hit { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; padding: 2px 0; }
+#amb .portal-list { list-style: none; margin: 0; padding: 0; }
+#amb .portal-list li { padding: 2px 0; }
+#amb .portal-list .detail-link { white-space: normal; text-align: left; }
+#amb .multi-pop button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 4px; }
+@media (max-width: 800px) {
+  #amb .chart-grid, #amb .main.cols-3 .kpi-row, #amb .main.cols-2 .kpi-row { grid-template-columns: 1fr; }
+  #amb .side { width: auto; border-right: 0; }
+}
