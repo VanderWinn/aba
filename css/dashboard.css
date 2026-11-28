@@ -1405,7 +1405,7 @@ select:focus-visible {
     height: 100%;
     max-height: 100%;
   }
-  #dash.page-membership .card-types .chart { width: 100%; height: auto; max-height: none; }
+  #dash.page-membership .card-types .chart { width: 100%; height: 100%; max-height: 100%; }
   #dash.page-events .visit-donut { align-items: center; }
   #dash.page-events .donut { max-height: 70%; width: auto; height: auto; flex: 0 1 auto; }
 }

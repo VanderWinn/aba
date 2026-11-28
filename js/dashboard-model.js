@@ -859,6 +859,28 @@
     return next;
   }
 
+  function encodeHashItem(value) {
+    return encodeURIComponent(encodeURIComponent(String(value)));
+  }
+
+  function decodeHashItem(value) {
+    var current = String(value || '');
+    var i;
+    for (i = 0; i < 2; i++) {
+      if (!/%[0-9A-Fa-f]{2}/.test(current)) break;
+      try {
+        var next = decodeURIComponent(current);
+        if (next === current) break;
+        current = next;
+      } catch (err) { break; }
+    }
+    return current;
+  }
+
+  function decodeHashList(value) {
+    return String(value || '').split(',').map(decodeHashItem).filter(Boolean);
+  }
+
   function stateHash(state) {
     var parts = [
       'page=' + (state.page || 'overview'),
@@ -873,11 +895,11 @@
     }
     var hashTypes = listOf(state.eventTypes);
     if (!hashTypes.length && state.eventType) hashTypes = [state.eventType];
-    if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeURIComponent).join(','));
+    if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeHashItem).join(','));
     if (state.audience) parts.push('audience=' + encodeURIComponent(state.audience));
-    if (listOf(state.selectedBusinessTypes).length) parts.push('biz=' + listOf(state.selectedBusinessTypes).map(encodeURIComponent).join(','));
-    if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeURIComponent).join(','));
-    if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeURIComponent).join(','));
+    if (listOf(state.selectedBusinessTypes).length) parts.push('biz=' + listOf(state.selectedBusinessTypes).map(encodeHashItem).join(','));
+    if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeHashItem).join(','));
+    if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeHashItem).join(','));
     if (state.bucket) parts.push('bucket=' + encodeURIComponent(state.bucket));
     if (state.flow === 'new' || state.flow === 'lost') parts.push('flow=' + state.flow);
     if (state.renewalTenure) parts.push('tenure=' + encodeURIComponent(state.renewalTenure));
@@ -894,15 +916,18 @@
       var bits = pair.split('=');
       var key = bits[0] || '';
       try { key = decodeURIComponent(key); } catch (err) {}
-      var value = bits.slice(1).join('=');
-      try { value = decodeURIComponent(value); } catch (err) {}
-      bag[key] = value;
+      bag[key] = bits.slice(1).join('=');
     });
-    if (bag.page === 'membership' || bag.page === 'events' || bag.page === 'overview') state.page = bag.page;
-    if (bag.range === 'fy' || bag.range === 'last12' || bag.range === 'last3' || bag.range === 'custom') state.rangeKind = bag.range;
-    if (bag.group === 'month' || bag.group === 'quarter' || bag.group === 'year') state.group = bag.group;
-    if (isISO(bag.from)) state.from = bag.from;
-    if (isISO(bag.to)) state.to = bag.to;
+    var pageName = decodeHashItem(bag.page);
+    var rangeName = decodeHashItem(bag.range);
+    var groupName = decodeHashItem(bag.group);
+    var fromDay = decodeHashItem(bag.from);
+    var toDay = decodeHashItem(bag.to);
+    if (pageName === 'membership' || pageName === 'events' || pageName === 'overview') state.page = pageName;
+    if (rangeName === 'fy' || rangeName === 'last12' || rangeName === 'last3' || rangeName === 'custom') state.rangeKind = rangeName;
+    if (groupName === 'month' || groupName === 'quarter' || groupName === 'year') state.group = groupName;
+    if (isISO(fromDay)) state.from = fromDay;
+    if (isISO(toDay)) state.to = toDay;
     if (bag.fys) {
       state.years = String(bag.fys).split(',').map(Number).filter(function (year) { return /^\d{4}$/.test(String(year)); });
       if (!bag.range) state.rangeKind = 'custom';
@@ -921,26 +946,23 @@
       if (!bag.group && bag.period === 'month') state.group = 'month';
     }
     if (bag.type) {
-      var parsedTypes = String(bag.type).split(',').map(function (part) {
-        try { return decodeURIComponent(part); } catch (err) { return part; }
-      }).filter(function (type) { return TYPES.indexOf(type) !== -1; });
+      var parsedTypes = decodeHashList(bag.type).filter(function (type) { return TYPES.indexOf(type) !== -1; });
       state.eventTypes = parsedTypes;
       state.eventType = parsedTypes.length === 1 ? parsedTypes[0] : '';
     }
-    if (bag.companies) state.companies = String(bag.companies).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.people) state.people = String(bag.people).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.audience === 'Member' || bag.audience === 'Guest' || bag.audience === 'No-show') state.audience = bag.audience;
-    if (bag.biz) state.selectedBusinessTypes = String(bag.biz).split(',').map(function (part) {
-      try { return decodeURIComponent(part); } catch (err) { return part; }
-    }).filter(Boolean);
-    if (bag.bucket && /^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(bag.bucket)) state.bucket = bag.bucket;
-    if (bag.flow === 'new' || bag.flow === 'lost') state.flow = bag.flow;
-    if (bag.tenure === 'newer' || bag.tenure === 'longer' || bag.tenure === 'other') state.renewalTenure = bag.tenure;
-    if (bag.band === '0' || bag.band === '1–2' || bag.band === '3–5' || bag.band === '6+') state.renewalBand = bag.band;
+    if (bag.companies) state.companies = decodeHashList(bag.companies);
+    if (bag.people) state.people = decodeHashList(bag.people);
+    var audienceName = decodeHashItem(bag.audience);
+    var bucketName = decodeHashItem(bag.bucket);
+    var flowName = decodeHashItem(bag.flow);
+    var tenureName = decodeHashItem(bag.tenure);
+    var bandName = decodeHashItem(bag.band);
+    if (audienceName === 'Member' || audienceName === 'Guest' || audienceName === 'No-show') state.audience = audienceName;
+    if (bag.biz) state.selectedBusinessTypes = decodeHashList(bag.biz);
+    if (/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(bucketName)) state.bucket = bucketName;
+    if (flowName === 'new' || flowName === 'lost') state.flow = flowName;
+    if (tenureName === 'newer' || tenureName === 'longer' || tenureName === 'other') state.renewalTenure = tenureName;
+    if (bandName === '0' || bandName === '1–2' || bandName === '3–5' || bandName === '6+') state.renewalBand = bandName;
     return state;
   }
 

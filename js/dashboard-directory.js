@@ -952,8 +952,8 @@
         return;
       }
       if (mode === 'changes') {
-        if ((!useFlow || view.flow === 'new') && joined && joined >= start && joined <= end) rows.push(memberLine(row, 'new', joined));
-        if ((!useFlow || view.flow === 'lost') && lost && lost >= start && lost <= end) rows.push(memberLine(row, 'lost', lost));
+        if (joined && joined >= start && joined <= end) rows.push(memberLine(row, 'new', joined));
+        if (lost && lost >= start && lost <= end) rows.push(memberLine(row, 'lost', lost));
         return;
       }
       if (joined && joined > end) return;
@@ -972,7 +972,7 @@
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     if (kind === 'attendance' || kind === 'distribution') {
-      var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
+      var found = audience === 'No-show' ? [] : attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
       var visitTitle = 'Event visits';
       if (eventTypes.length === 1) visitTitle = eventTypes[0] + ' visits';

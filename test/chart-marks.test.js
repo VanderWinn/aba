@@ -166,6 +166,83 @@ test('the active-member line reconciles with the net card', () => {
   fs.writeFileSync('/tmp/line-identity.json', JSON.stringify({ checks: checks }, null, 2));
 });
 
+function dayBefore(iso) {
+  const parts = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+test('a cohort net equals active stock minus the day before the window', () => {
+  const built = directoryApi.build(source);
+  ['month', 'quarter', 'year'].forEach(function (group) {
+    const ranges = group === 'year' ? ['last12', 'custom'] : ['fy', 'last12'];
+    ranges.forEach(function (rangeKind) {
+      const base = Object.assign({}, dash.defaultState(source), {
+        group: group,
+        rangeKind: rangeKind,
+        years: rangeKind === 'custom' ? [2026, 2027] : []
+      });
+      const open = dash.compute(source, base, built);
+      (open.gains || []).forEach(function (bar) {
+        if (!bar.id || String(bar.id).indexOf(':') === -1) return;
+        ['new', 'lost'].forEach(function (flow) {
+          const view = dash.compute(source, Object.assign({}, base, { bucket: bar.id, flow: flow }), built);
+          const before = directoryApi.memberRecords(built, view, {
+            start: dayBefore(bar.start || bar.id.split(':')[0]),
+            end: dayBefore(bar.start || bar.id.split(':')[0]),
+            useFlow: true
+          }, 'active').length;
+          assert.equal(view.members.value - before, view.net.value, group + ' ' + rangeKind + ' ' + flow + ' ' + bar.id);
+        });
+      });
+    });
+  });
+});
+
+test('a business type with a comma survives the hash and a reload', async () => {
+  const label = 'Medical, Dental & Nursing Care';
+  const state = Object.assign({}, dash.defaultState(source), { selectedBusinessTypes: [label, 'Contractors'] });
+  const hash = dash.stateHash(state);
+  function typesOf(value) {
+    return JSON.parse(JSON.stringify(dash.stateFromHash(value, source).selectedBusinessTypes));
+  }
+  assert.deepEqual(typesOf(hash), [label, 'Contractors']);
+  assert.deepEqual(typesOf(decodeURIComponent(hash)), [label, 'Contractors']);
+  const { chromium } = require('/tmp/pw/node_modules/playwright-core');
+  const portal = JSON.parse(fs.readFileSync(path.join(root, 'portal.json'), 'utf8'));
+  const browser = await chromium.launch({ executablePath: '/usr/local/bin/google-chrome', headless: true, args: ['--no-sandbox', '--disable-gpu'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
+    await page.addInitScript(function (expected) {
+      const orig = crypto.subtle.digest.bind(crypto.subtle);
+      crypto.subtle.digest = function (algo, data) {
+        const text = new TextDecoder().decode(data);
+        if (text === 'example-signin') {
+          const bytes = new Uint8Array(expected.match(/../g).map(function (hex) { return parseInt(hex, 16); }));
+          return Promise.resolve(bytes.buffer);
+        }
+        return orig(algo, data);
+      };
+    }, portal.passwordSha256);
+    await page.route('**/*script.google.com/**', function (route) { route.fulfill({ status: 500, body: '' }); });
+    await page.goto('http://127.0.0.1:8766/', { waitUntil: 'domcontentloaded' });
+    await page.fill('#portal-password', 'example-signin');
+    await page.click('#portal-form button[type="submit"]');
+    await page.waitForSelector('#dash:not([hidden])');
+    await page.evaluate(function (next) { history.replaceState(null, '', '#' + next); }, hash);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.filter-chip');
+    const chips = await page.locator('.filter-chip').allInnerTexts();
+    assert.ok(chips.some(function (text) { return text.indexOf(label) !== -1; }));
+    assert.equal((await page.locator('.filter-chip', { hasText: 'Medical' }).count()) > 0, true);
+    const broken = await page.locator('.filter-chip').allInnerTexts();
+    assert.equal(broken.some(function (text) { return text.indexOf('Dental & Nursing Care') !== -1 && text.indexOf(label) === -1; }), false);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('every chart mark is a shared filter', () => {
   const built = directoryApi.build(source);
   const pages = ['overview', 'membership', 'events'];
@@ -317,6 +394,8 @@ test('every card list matches after each period mark', () => {
   const quiet = dash.compute(source, Object.assign({}, dash.defaultState(source), { audience: 'No-show' }), built);
   assert.equal((quiet.pie.members || 0) + (quiet.pie.guests || 0), quiet.attendance.value);
   assert.equal(quiet.attendance.value, 0);
+  assert.equal(directoryApi.drill(built, 'attendance', quiet).rows.length, 0);
+  assert.equal(directoryApi.drill(built, 'noshows', quiet).rows.length, quiet.noShows.noShows);
   assert.equal(quiet.pie.noShows, quiet.noShows.noShows);
   const july = '2026-07-01:2026-07-31';
   ['new', 'lost'].forEach(function (flow) {
@@ -328,13 +407,22 @@ test('every card list matches after each period mark', () => {
     assert.equal((point.joins || 0) - (point.losses || 0), flowed.net.value);
   });
   const typed = dash.compute(source, dash.defaultState(source), built);
-  const names = (typed.businessTypes || []).map(function (row) { return row.label || row.category; }).filter(function (name) { return name && name !== 'Other / not listed'; });
-  const chosenTypes = names.slice(-3);
-  typed.selectedBusinessTypes = chosenTypes;
-  const svg = sandbox.ABADashboardView.businessTypeBars(typed, 280, 70);
-  chosenTypes.forEach(function (name) {
-    assert.ok(svg.indexOf('data-business-type="' + name + '"') !== -1, name);
+  const names = (typed.businessTypes || []).map(function (row) { return row.label || row.category; }).filter(Boolean);
+  const lowType = names[names.length - 1];
+  typed.selectedBusinessTypes = [lowType];
+  const full = sandbox.ABADashboardView.businessTypeBars(typed, 280, 400);
+  const fitted = sandbox.ABADashboardView.businessTypeBars(typed, 280, 400);
+  names.forEach(function (name) {
+    const needle = 'data-business-type="' + name.replace(/&/g, '&amp;') + '"';
+    assert.ok(full.indexOf(needle) !== -1, name);
+    assert.ok(fitted.indexOf(needle) !== -1, name);
   });
+  const short = sandbox.ABADashboardView.businessTypeBars(typed, 280, 90);
+  function mark(svg, name) {
+    return svg.indexOf('data-business-type="' + String(name).replace(/&/g, '&amp;') + '"') !== -1;
+  }
+  assert.ok(mark(short, lowType));
+  assert.ok(mark(short, names[0]));
   typed.page = 'membership';
   assert.ok(sandbox.ABADashboardView.render(typed).indexOf('A business in more than one category is counted in each bar.') !== -1);
   const person = (built.attendance || []).filter(function (row) {

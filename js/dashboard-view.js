@@ -103,12 +103,13 @@
       maxUp = Math.max(maxUp, bar.joins || 0);
       maxDown = Math.max(maxDown, bar.losses || 0);
     });
-    var topInset = 28;
-    var botInset = 50;
+    var monthBand = 22;
+    var topInset = 22;
+    var minRoom = 12;
     var mid = Math.round(h * 0.5);
-    if (mid < topInset + 12) mid = topInset + 12;
-    if (h - mid < botInset) mid = Math.max(topInset + 12, h - botInset);
-    var sc = Math.min((mid - topInset) / maxUp, (h - mid - botInset) / maxDown);
+    if (mid - topInset < minRoom) mid = topInset + minRoom;
+    if (h - mid - monthBand < minRoom) mid = Math.max(topInset + 8, h - monthBand - minRoom);
+    var sc = Math.min(Math.max(8, mid - topInset) / maxUp, Math.max(8, h - mid - monthBand) / maxDown);
     if (!(sc > 0)) sc = 0;
     var n = series.length;
     var gap = 18;
@@ -128,10 +129,10 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + bar.color + '"' + gainDim + (gainOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' gained ' + (bar.joins || 0) + '</title></rect>' + markClose());
       parts.push(markOpen(lossOn, 'Cancelled members ' + bar.label, 'data-period="' + escapeHtml(bar.id || '') + '" data-flow="lost"'));
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + bar.color + '" opacity="' + lossOpacity + '"' + (lossOn ? ' stroke="#243033" stroke-width="3"' : '') + '><title>' + escapeHtml(bar.label) + ' lost ' + (bar.losses || 0) + '</title></rect>' + markClose());
-      var gainLabelY = mid - up - 6;
-      if (gainLabelY >= 14) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + gainLabelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
-      var lossLabelY = mid + Math.max(down, 2) + 14;
-      if (bar.losses && lossLabelY < h - 22 && lossLabelY > gainLabelY + 18) {
+      var gainLabelY = mid - Math.max(up, 0) - 6;
+      if (gainLabelY >= 14 && gainLabelY <= mid - 4) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + gainLabelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + (bar.joins || 0) + '</text>');
+      var lossLabelY = mid + Math.max(down, 0) + 14;
+      if (bar.losses && lossLabelY >= mid + 12 && lossLabelY <= h - 26 && lossLabelY > gainLabelY + 18) {
         parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + lossLabelY.toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       }
       parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="12" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bar.label) + '</text>');
@@ -216,10 +217,16 @@
       maxUp = Math.max(maxUp, bucket.joins || 0, bucket.priorJoins || 0);
       maxDown = Math.max(maxDown, bucket.losses || 0, bucket.priorLosses || 0);
     });
-    var mid = Math.round(h * (showLabels ? 0.56 : 0.55));
-    var topInset = labelValues ? (showLabels ? 34 : 26) : 18;
-    var botInset = showLabels ? 50 : 28;
-    var sc = Math.min((mid - topInset) / maxUp, (h - mid - botInset) / maxDown);
+    var monthBand = showLabels ? 22 : 16;
+    var topInset = labelValues ? (showLabels ? 22 : 16) : 12;
+    var minRoom = 12;
+    var mid = Math.round(h * 0.5);
+    if (mid - topInset < minRoom) mid = topInset + minRoom;
+    if (h - mid - monthBand < minRoom) mid = Math.max(topInset + 8, h - monthBand - minRoom);
+    var topRoom = Math.max(8, mid - topInset);
+    var botRoom = Math.max(8, h - mid - monthBand);
+    var sc = Math.min(topRoom / maxUp, botRoom / maxDown);
+    if (!(sc > 0)) sc = 0;
     var n = series.length || 1;
     var cw = (w - 20) / n;
     var gap = n > 8 ? 2 : 4;
@@ -244,10 +251,10 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + downColor + '"' + lossDim + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '/>' + markClose());
       if (!labelValues) return;
       var cx = x + bw / 2;
-      var gainY = mid - up - 4;
-      var lossY = mid + down + 14;
-      if (joins || !losses) parts.push(valueText(cx, gainY, joins, '700'));
-      if (losses && lossY < h - 22 && lossY > gainY + 18) parts.push(valueText(cx, lossY, losses, '700'));
+      var gainY = mid - Math.max(up, 0) - 6;
+      var lossY = mid + Math.max(down, 0) + 14;
+      if ((joins || !losses) && gainY >= 12 && gainY <= mid - 4) parts.push(valueText(cx, gainY, joins, '700'));
+      if (losses && lossY >= mid + 12 && lossY <= h - monthBand - 4 && lossY >= gainY + 16) parts.push(valueText(cx, lossY, losses, '700'));
     }
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
@@ -845,7 +852,12 @@ function stepControl(step, enabled, compact, attrs) {
         maxDown = Math.max(maxDown, bar.losses || 0);
       });
     });
-    var sc = Math.min((mid - (compact ? 36 : 28)) / maxUp, (h - mid - (compact ? 44 : 32)) / maxDown);
+    var monthBand = 22;
+    var topInset = compact ? 28 : 22;
+    if (mid - topInset < 12) mid = topInset + 12;
+    if (h - mid - monthBand < 12) mid = Math.max(topInset + 8, h - monthBand - 12);
+    var sc = Math.min(Math.max(8, mid - topInset) / maxUp, Math.max(8, h - mid - monthBand) / maxDown);
+    if (!(sc > 0)) sc = 0;
     var slot = (w - 20) / n;
     var gap = 3;
     var bw = Math.max(8, Math.min(16, (slot - 12 - gap * (seriesCount - 1)) / seriesCount));
@@ -866,8 +878,10 @@ function stepControl(step, enabled, compact, attrs) {
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '"' + (view && view.bucket && !gainOn ? ' opacity="0.35"' : '') + (gainOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></rect>' + markClose());
         parts.push(markOpen(lossOn, 'Cancelled members ' + bar.label + ' ' + group.label, 'data-period="' + escapeHtml(periodId) + '" data-flow="lost"'));
         parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 2).toFixed(1) + '" fill="' + (bar.color || TEAL) + '" opacity="' + (view && view.bucket && !lossOn ? '0.2' : '0.4') + '"' + (lossOn ? ' stroke="#243033" stroke-width="2"' : '') + '><title>' + tip + '</title></rect>' + markClose());
-        if (bar.joins) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 4).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.joins + '</text>');
-        if (bar.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + labelSize).toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
+        var gainY = mid - Math.max(up, 0) - 6;
+        var lossY = mid + Math.max(down, 0) + 14;
+        if (bar.joins && gainY >= 12 && gainY <= mid - 4) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + gainY.toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.joins + '</text>');
+        if (bar.losses && lossY >= mid + 12 && lossY <= h - 26) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + lossY.toFixed(1) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + bar.losses + '</text>');
       });
       if (axisLabelOn(index, n, false)) {
         parts.push('<text x="' + (10 + index * slot + slot / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="' + labelSize + '" fill="#3d4c50" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(group.label) + '</text>');
@@ -1055,37 +1069,54 @@ function stepControl(step, enabled, compact, attrs) {
     var rows = businessTypeRows(view);
     if (!rows.length) return '';
     var barH = 16;
-    var gap = 8;
+    var gap = 6;
     var pitch = barH + gap;
-    if (slotH && slotH >= pitch) {
-      var fit = Math.max(1, Math.floor((slotH - 4) / pitch));
+    if (slotH && slotH >= 20) {
       var pickedNames = view.selectedBusinessTypes || [];
-      var must = [];
-      var rest = [];
-      rows.forEach(function (row) {
-        if (pickedNames.indexOf(row.name) !== -1) must.push(row);
-        else rest.push(row);
+      var available = Math.max(pitch, slotH - 8);
+      var minPitch = 16;
+      var cap = Math.max(1, Math.floor(available / minPitch));
+      var other = rows[rows.length - 1].name === 'Other / not listed' ? rows[rows.length - 1] : null;
+      var named = other ? rows.slice(0, -1) : rows.slice();
+      var kept = named.length + (other ? 1 : 0) <= cap ? rows.slice() : (other && cap >= 2 ? named.slice(0, cap - 1).concat([other]) : named.slice(0, cap));
+      pickedNames.forEach(function (name) {
+        if (kept.some(function (row) { return row.name === name; })) return;
+        var found = rows.filter(function (row) { return row.name === name; })[0];
+        if (found) kept.push(found);
       });
-      var limit = Math.max(fit, must.length);
-      var otherRow = null;
-      var namedRest = [];
-      rest.forEach(function (row) {
-        if (row.name === 'Other / not listed') otherRow = row;
-        else namedRest.push(row);
-      });
-      var room = limit - must.length;
-      var fill = [];
-      if (otherRow && room > 0) {
-        fill = namedRest.slice(0, room - 1);
-        fill.push(otherRow);
-      } else fill = namedRest.slice(0, room);
-      var kept = must.concat(fill);
+      var maxAtMin = Math.max(1, Math.floor(available / minPitch));
+      if (kept.length > maxAtMin) {
+        var selectedRows = [];
+        var restRows = [];
+        kept.forEach(function (row) {
+          if (pickedNames.indexOf(row.name) !== -1) selectedRows.push(row);
+          else restRows.push(row);
+        });
+        var room = Math.max(0, maxAtMin - selectedRows.length);
+        var otherRow = null;
+        var namedRest = [];
+        restRows.forEach(function (row) {
+          if (row.name === 'Other / not listed') otherRow = row;
+          else namedRest.push(row);
+        });
+        var fill = namedRest.slice(0, otherRow && room > 0 ? Math.max(0, room - 1) : room);
+        if (otherRow && fill.length < room) fill.push(otherRow);
+        kept = selectedRows.concat(fill);
+      }
       kept.sort(function (a, b) {
         if (a.name === 'Other / not listed') return 1;
         if (b.name === 'Other / not listed') return -1;
         if (b.value !== a.value) return b.value - a.value;
         return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
       });
+      if (kept.length) {
+        var used = Math.floor(available / kept.length);
+        if (used < pitch) {
+          barH = Math.max(12, Math.min(16, used - 4));
+          gap = Math.max(4, used - barH);
+          pitch = barH + gap;
+        }
+      }
       rows = kept;
     }
     w = w || 320;
@@ -1093,7 +1124,8 @@ function stepControl(step, enabled, compact, attrs) {
     rows.forEach(function (row) { if (row.name.length > longest) longest = row.name.length; });
     var labelW = Math.min(Math.round(longest * 6.35) + 10, Math.max(120, w - 88));
     var countW = 36;
-    var h = 8 + rows.length * pitch;
+    var contentH = 8 + rows.length * pitch;
+    var h = slotH && slotH > contentH ? slotH : contentH;
     var max = 1;
     rows.forEach(function (row) { if (row.value > max) max = row.value; });
     var plotW = Math.max(24, w - labelW - countW - 8);
